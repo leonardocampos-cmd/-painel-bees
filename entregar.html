@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Pedidos a Entregar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="estilo.css">
+<script src="dados.js"></script>
+<script src="comum.js"></script>
+</head>
+<body>
+<main>
+  <h1>Pedidos a ser entregues</h1>
+  <p class="sub" id="sub">Pedidos "A ser entregue" no BEES cruzados com o Winthor (PCPEDC + PCCARREG)</p>
+
+  <div class="grade g-kpi" id="acoes"></div>
+
+  <div class="filtros">
+    <input id="f-busca" type="search" placeholder="Buscar pedido, cliente, documento, NF, nº Winthor ou produto">
+    <select id="f-filial"><option value="">Todas as filiais</option></select>
+    <select id="f-uf"><option value="">Todos os estados</option></select>
+    <select id="f-cd"><option value="">Todos os CDs</option></select>
+    <select id="f-div"><option value="">Qualquer valor</option><option value="1">Valor BEES ≠ Winthor</option></select>
+    <button class="botao" id="b-csv">Baixar CSV</button>
+  </div>
+
+  <div class="grade g-kpi" id="kpis"></div>
+
+  <div class="tabela-wrap" style="margin-top:16px"><table id="t-pedidos"></table></div>
+</main>
+
+<script>
+montarTopo("entregar");
+
+const AE = D.a_entregar || {};
+const pedidos = AE.lista || [];
+
+// Ordem e cor de cada próximo passo sugerido
+const ACOES = {
+  "Dar baixa no BEES":       { cor: "ok",     dica: "Faturado e já saiu no caminhão — confirmar entrega no BEES" },
+  "Em rota":                 { cor: "azul",   dica: "Faturado, saída hoje ou ainda sem saída" },
+  "Aguardando faturamento":  { cor: "amanha", dica: "Pedido no Winthor ainda não faturado" },
+  "Bloqueado no Winthor":    { cor: "hoje",   dica: "Pedido bloqueado no Winthor" },
+  "Sem pedido no Winthor":   { cor: "hoje",   dica: "Não existe pedido no Winthor com esse número do BEES" },
+  "Cancelar no BEES":        { cor: "hoje",   dica: "Cancelado no Winthor — cancelar também no BEES" },
+  "Não verificado":          { cor: "",       dica: "Sem consulta ao Winthor para este pedido" },
+};
+const tagAcao = (a) => `<span class="tag ${ACOES[a]?.cor ?? ""}" title="${esc(ACOES[a]?.dica)}">${esc(a)}</span>`;
+
+if (AE.winthor_verificado_em)
+  $("#sub").textContent += ` · Winthor consultado em ${new Date(AE.winthor_verificado_em).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}`;
+
+const unicos = (campo) => [...new Set(pedidos.map((p) => p[campo]).filter(Boolean))].sort();
+for (const [id, campo] of [["f-filial", "filial"], ["f-uf", "uf"], ["f-cd", "cd"]])
+  $("#" + id).insertAdjacentHTML("beforeend", unicos(campo).map((v) => `<option>${esc(v)}</option>`).join(""));
+
+let acaoSel = "";
+let ordem = { campo: "data_entrega", asc: true };
+let aberto = null;
+
+function filtrar({ ignorarAcao = false } = {}) {
+  const b = $("#f-busca").value.trim().toUpperCase();
+  const f = { filial: $("#f-filial").value, uf: $("#f-uf").value, cd: $("#f-cd").value };
+  const div = $("#f-div").value;
+  return pedidos.filter((p) =>
+    Object.entries(f).every(([k, v]) => !v || p[k] === v) &&
+    (!div || p.divergencia) &&
+    (ignorarAcao || !acaoSel || p.acao === acaoSel) &&
+    (!b || [p.numero, p.cliente, p.responsavel, p.documento, p.cidade, p.winthor?.numped, p.winthor?.nota,
+      p.winthor?.carga, ...p.itens.map((i) => i.produto + " " + i.sku)].join(" ").toUpperCase().includes(b)));
+}
+
+function detalhe(p) {
+  const w = p.winthor;
+  const blocoWinthor = !w ? `<dd class="fraco">Não consultado</dd>` : `
+    <dt>Situação</dt><dd>${esc(w.situacao)}${w.posicao ? ` <span class="fraco">(posição ${esc(w.posicao)})</span>` : ""}</dd>
+    ${w.numped ? `<dt>Pedido Winthor · Cliente</dt><dd class="mono">${w.numped} · ${w.codcli ?? "—"} <span class="fraco">(${esc(w.schema)} / filial ${esc(w.filial)})</span></dd>
+    <dt>Valor Winthor</dt><dd>${brl(w.valor)}${p.divergencia ? ` <span class="tag hoje">BEES ${brl(p.total)}</span>` : ""}</dd>` : ""}`;
+  const blocoNota = !w?.numped ? `<dd class="fraco">—</dd>` : `
+    <dt>Nota fiscal</dt><dd class="mono">${w.nota ?? "—"}${w.faturado_em ? ` <span class="fraco">em ${dataBR(w.faturado_em)}</span>` : ""}</dd>
+    <dt>Carregamento</dt><dd class="mono">${w.carga ?? "—"}${w.destino ? ` <span class="fraco">${esc(w.destino)}</span>` : ""}</dd>
+    <dt>Saída do caminhão</dt><dd>${dataBR(w.saida)}</dd>`;
+  return `<tr class="detalhe"><td colspan="10">
+    <dl class="det-grade" style="grid-template-columns:repeat(4,1fr)">
+      <div><dt>Responsável</dt><dd>${esc(p.responsavel)}</dd><dt>Documento</dt><dd class="mono">${esc(p.documento)}</dd>
+        <dt>Pagamento</dt><dd>${esc(p.pagamento)}</dd></div>
+      <div><dt>Endereço</dt><dd>${esc(p.endereco)}</dd><dt>CEP</dt><dd class="mono">${esc(p.cep)}</dd>
+        <dt>Telefone</dt><dd>${linkTel(p.telefone)}</dd></div>
+      <div>${blocoWinthor}</div>
+      <div>${blocoNota}</div>
+    </dl>
+    <table class="itens"><thead><tr><th>SKU</th><th>Produto</th><th class="n">Qtd</th><th class="n">Valor</th></tr></thead>
+      <tbody>${p.itens.map((i) => `<tr><td class="mono">${esc(i.sku)}</td><td>${esc(i.produto)}</td>
+      <td class="n">${int(i.qtd)}</td><td class="n">${brl(i.valor)}</td></tr>`).join("")}</tbody></table>
+  </td></tr>`;
+}
+
+const colunas = [
+  ["numero", "Pedido"], ["filial", "Filial"], ["cd", "CD"], ["cliente", "Cliente"], ["data_entrega", "Entrega BEES"],
+  ["numped", "Pedido Winthor"], ["nota", "NF"], ["saida", "Saída"], ["acao", "Próximo passo"], ["total", "Total", true],
+];
+const valorOrdem = (p, c) => ({ numped: p.winthor?.numped, nota: p.winthor?.nota, saida: p.winthor?.saida }[c] ?? p[c] ?? "");
+
+function render() {
+  // Cartões de próximo passo (respeitam os demais filtros, e servem de filtro)
+  const base = filtrar({ ignorarAcao: true });
+  $("#acoes").innerHTML = Object.keys(ACOES).map((a) => {
+    const l = base.filter((p) => p.acao === a);
+    if (!l.length) return "";
+    return `<div class="card kpi acao${acaoSel === a ? " destaque" : ""}" data-acao="${esc(a)}" style="cursor:pointer" title="${esc(ACOES[a].dica)}">
+      <div class="rot">${tagAcao(a)}</div><div class="val">${int(l.length)}</div>
+      <div class="det">${brl(l.reduce((s, p) => s + (p.total || 0), 0))}</div></div>`;
+  }).join("");
+
+  const lista = filtrar();
+  const { campo, asc } = ordem;
+  lista.sort((a, b) => {
+    const x = valorOrdem(a, campo), y = valorOrdem(b, campo);
+    return (x > y ? 1 : x < y ? -1 : 0) * (asc ? 1 : -1);
+  });
+
+  const total = lista.reduce((s, p) => s + (p.total || 0), 0);
+  $("#kpis").innerHTML = [
+    kpi("Pedidos", int(lista.length), acaoSel ? `filtrando: ${esc(acaoSel)}` : "", true),
+    kpi("Valor total", brl(total)),
+    kpi("Entrega BEES vencida", int(lista.filter((p) => (diasAte(p.data_entrega) ?? 1) < 0).length)),
+    kpi("Valor BEES ≠ Winthor", int(lista.filter((p) => p.divergencia).length), "diferença acima de R$ 1,00"),
+  ].join("");
+
+  $("#t-pedidos").innerHTML = lista.length ? `<thead><tr>${colunas.map(([c, n, num]) =>
+    `<th data-c="${c}" class="${num ? "n" : ""}">${n}${ordem.campo === c ? (ordem.asc ? " ↑" : " ↓") : ""}</th>`).join("")}</tr></thead>
+    <tbody>${lista.map((p) => {
+      const chave = p.filial + p.numero, w = p.winthor || {};
+      return `<tr class="clicavel${aberto === chave ? " aberto" : ""}" data-k="${chave}">
+        <td class="mono">${p.numero}</td><td><span class="tag ${p.filial.toLowerCase()}">${p.filial}</span></td>
+        <td class="fraco">${esc(p.cd)}</td><td>${esc(p.cliente)}<div class="fraco" style="font-size:12px">${esc(p.cidade)}</div></td>
+        <td>${tagEntrega(p.data_entrega)}</td>
+        <td class="mono">${w.numped ?? '<span class="fraco">—</span>'}</td>
+        <td class="mono">${w.nota ?? '<span class="fraco">—</span>'}</td>
+        <td>${w.saida ? dataBR(w.saida) : '<span class="fraco">—</span>'}</td>
+        <td>${tagAcao(p.acao)}${p.divergencia ? ' <span class="tag hoje" title="Valor diferente entre BEES e Winthor">R$ ≠</span>' : ""}</td>
+        <td class="n">${brl(p.total)}</td></tr>${aberto === chave ? detalhe(p) : ""}`;
+    }).join("")}</tbody>` : `<tbody><tr><td class="vazio">Nenhum pedido${pedidos.length ? " com esses filtros" : ""}.</td></tr></tbody>`;
+}
+
+$("#acoes").addEventListener("click", (e) => {
+  const c = e.target.closest("[data-acao]");
+  if (!c) return;
+  acaoSel = acaoSel === c.dataset.acao ? "" : c.dataset.acao;
+  render();
+});
+$("#t-pedidos").addEventListener("click", (e) => {
+  const th = e.target.closest("th[data-c]");
+  if (th) {
+    ordem = { campo: th.dataset.c, asc: ordem.campo === th.dataset.c ? !ordem.asc : true };
+    return render();
+  }
+  if (e.target.closest("a")) return;
+  const tr = e.target.closest("tr.clicavel");
+  if (tr) { aberto = aberto === tr.dataset.k ? null : tr.dataset.k; render(); }
+});
+document.querySelectorAll(".filtros input, .filtros select").forEach((el) => el.addEventListener("input", render));
+
+$("#b-csv").addEventListener("click", () => {
+  const cab = ["Pedido BEES", "Filial", "UF", "CD", "Cliente", "Documento", "Cidade", "Entrega BEES", "Pagamento", "Telefone",
+    "Total BEES", "Próximo passo", "Situação Winthor", "Pedido Winthor", "Cód. cliente", "Valor Winthor", "Faturado em", "NF",
+    "Carregamento", "Saída"];
+  const linhas = filtrar().map((p) => {
+    const w = p.winthor || {};
+    return [p.numero, p.filial, p.uf, p.cd, p.cliente, p.documento, p.cidade, dataBR(p.data_entrega), p.pagamento, p.telefone,
+      String(p.total ?? "").replace(".", ","), p.acao, w.situacao, w.numped, w.codcli, String(w.valor ?? "").replace(".", ","),
+      w.faturado_em ? dataBR(w.faturado_em) : "", w.nota, w.carga, w.saida ? dataBR(w.saida) : ""];
+  });
+  const csv = [cab, ...linhas].map((l) => l.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(";")).join("\r\n");
+  Object.assign(document.createElement("a"), {
+    href: URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" })),
+    download: `pedidos_a_entregar_${new Date().toISOString().slice(0, 10)}.csv`,
+  }).click();
+});
+
+render();
+</script>
+</body>
+</html>

@@ -193,3 +193,9 @@ tbody tr.aberto { background: var(--accent-soft); }
   .topo-in, main { padding-left: 16px; padding-right: 16px; }
   .gerado { display: none; }
 }
+
+/* --- Próximo passo (pedidos a entregar) --------------------------------- */
+.tag.ok { background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); }
+.tag.azul { background: color-mix(in srgb, var(--castas) 16%, transparent); color: var(--castas); }
+.kpi.acao:hover { border-color: var(--text-3); }
+@media (max-width: 800px) { .det-grade[style] { grid-template-columns: 1fr !important; } }

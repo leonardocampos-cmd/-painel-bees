@@ -30,6 +30,21 @@ function diasAte(iso) {
   return Math.round((new Date(iso + "T00:00:00") - hoje) / 864e5);
 }
 
+// Etiqueta da data de entrega: atrasado / hoje / amanhã
+function tagEntrega(iso) {
+  const d = diasAte(iso);
+  if (d == null) return "—";
+  if (d < 0) return `<span class="tag hoje">${dataBR(iso)} · atrasado</span>`;
+  if (d === 0) return `<span class="tag hoje">${dataBR(iso)} · hoje</span>`;
+  if (d === 1) return `<span class="tag amanha">${dataBR(iso)} · amanhã</span>`;
+  return dataBR(iso);
+}
+
+function linkTel(t) {
+  const n = String(t || "").replace(/\D/g, "");
+  return n ? `<a href="https://wa.me/${n}" target="_blank" rel="noopener">${esc(t)}</a>` : "—";
+}
+
 function variacao(atual, anterior) {
   if (!anterior) return "";
   const p = ((atual - anterior) / anterior) * 100;
@@ -59,7 +74,8 @@ function montarTopo(ativo) {
       <div class="marca"><i></i>Painel BEES</div>
       <nav class="nav">
         <a href="index.html" class="${ativo === "dash" ? "ativo" : ""}">Dashboard</a>
-        <a href="preparar.html" class="${ativo === "preparar" ? "ativo" : ""}">Pedidos a preparar</a>
+        <a href="preparar.html" class="${ativo === "preparar" ? "ativo" : ""}">A preparar</a>
+        <a href="entregar.html" class="${ativo === "entregar" ? "ativo" : ""}">A entregar</a>
       </nav>
       <div class="gerado">${gerado ? `Atualizado em<br>${gerado.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}` : "Sem dados"}</div>
       <button class="tema" title="Alternar tema" id="btn-tema">◐</button>

@@ -56,20 +56,6 @@ function filtrar() {
       .join(" ").toUpperCase().includes(b)));
 }
 
-function tagEntrega(iso) {
-  const d = diasAte(iso);
-  if (d == null) return "—";
-  if (d < 0) return `<span class="tag hoje">${dataBR(iso)} · atrasado</span>`;
-  if (d === 0) return `<span class="tag hoje">${dataBR(iso)} · hoje</span>`;
-  if (d === 1) return `<span class="tag amanha">${dataBR(iso)} · amanhã</span>`;
-  return dataBR(iso);
-}
-
-function linkTel(t) {
-  const n = String(t || "").replace(/\D/g, "");
-  return n ? `<a href="https://wa.me/${n}" target="_blank" rel="noopener">${esc(t)}</a>` : "—";
-}
-
 function detalhe(p) {
   return `<tr class="detalhe"><td colspan="9">
     <dl class="det-grade">
