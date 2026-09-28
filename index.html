@@ -19,7 +19,7 @@
 
   <div class="grade g-kpi" id="kpis-fluxo"></div>
 
-  <div class="secao-titulo">Vendas entregues</div>
+  <div class="secao-titulo">Vendas entregues <span id="ref-entregues" style="text-transform:none;letter-spacing:0;font-weight:400"></span></div>
   <div class="grade g-kpi" id="kpis-vendas" style="margin-top:0"></div>
 
   <div class="grade g-2 secao" style="margin-top:16px">
@@ -89,17 +89,24 @@ const msgs = D.mensagens || {};
 const valorPrep = prep.reduce((s, p) => s + (p.total || 0), 0);
 const urgentes = prep.filter((p) => (diasAte(p.data_entrega) ?? 99) <= 1).length;
 const neAbertos = ne.pedidos.filter((p) => p.situacao !== "CANCELADO");
+const TIPOS = { CLIENTE: "Aviso financeiro", SAUDACAO: "Saudação", CADASTRO_EMAIL: "E-mail cadastro" };
 const msgHoje = Object.values(msgs.hoje || {}).reduce((a, b) => a + b, 0);
 $("#kpis-fluxo").innerHTML = [
   kpi("A preparar", int(prep.length), `${brl(valorPrep)} · <b>${urgentes}</b> entregam até amanhã`, true),
   kpi("A ser entregues", int(D.a_entregar?.pedidos), brl(D.a_entregar?.valor)),
   kpi("Não emitidos no Winthor", int(neAbertos.length), brl(neAbertos.reduce((s, p) => s + (p.total || 0), 0)) + " (sem cancelados)"),
   kpi("Fila de cadastro", int((D.cadastro || []).length), `${(D.cadastro || []).filter((c) => c.tipo === "CPF").length} CPF`),
-  kpi("Envios hoje", int(msgHoje), Object.entries(msgs.hoje || {}).map(([k, v]) => `${k.toLowerCase()}: ${v}`).join(" · ") || "nenhum"),
+  kpi("Envios hoje", int(msgHoje), Object.entries(msgs.hoje || {}).map(([k, v]) => `${TIPOS[k] || k}: ${v}`).join(" · ") || "nenhum"),
 ].join("");
 
 // --- KPIs de vendas ---
 const d30 = E.d30 || {}, ant = E.d30_anterior || {};
+if (E.referencia) {
+  const atraso = -diasAte(E.referencia);
+  const porFilial = Object.entries(E.ultima_por_filial || {}).map(([f, d]) => `${f} ${dataBR(d)}`).join(" · ");
+  $("#ref-entregues").innerHTML = `— até ${dataBR(E.referencia)}` + (atraso > 3
+    ? ` <span class="tag hoje" title="Última entrega registrada: ${porFilial}">coleta de entregues parada há ${atraso} dias</span>` : "");
+}
 $("#kpis-vendas").innerHTML = [
   kpi("Faturamento 30 dias", brl(d30.valor), variacao(d30.valor, ant.valor)),
   kpi("Pedidos entregues 30 dias", int(d30.pedidos), variacao(d30.pedidos, ant.pedidos)),
@@ -151,7 +158,7 @@ if (msgs.dias) {
     data: {
       labels: msgs.dias.map((d) => d.slice(8) + "/" + d.slice(5, 7)),
       datasets: Object.keys(msgs.por_tipo).map((t, i) => ({
-        label: { CLIENTE: "Aviso financeiro", SAUDACAO: "Saudação", CADASTRO_EMAIL: "E-mail cadastro" }[t] || t,
+        label: TIPOS[t] || t,
         data: msgs.por_tipo[t], backgroundColor: paleta[i % paleta.length], borderRadius: 3, stack: "s",
       })),
     },
