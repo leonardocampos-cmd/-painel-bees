@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Pedidos a Preparar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="estilo.css">
+<script src="dados.js"></script>
+<script src="comum.js"></script>
+</head>
+<body>
+<main>
+  <h1>Pedidos a preparar</h1>
+  <p class="sub">Clique em um pedido para ver cliente, endereço e itens</p>
+
+  <div class="filtros">
+    <input id="f-busca" type="search" placeholder="Buscar pedido, cliente, documento, cidade ou produto">
+    <select id="f-filial"><option value="">Todas as filiais</option></select>
+    <select id="f-uf"><option value="">Todos os estados</option></select>
+    <select id="f-cd"><option value="">Todos os CDs</option></select>
+    <select id="f-pag"><option value="">Todas as formas de pagamento</option></select>
+    <button class="botao" id="b-csv">Baixar CSV</button>
+  </div>
+
+  <div class="grade g-kpi" id="kpis"></div>
+
+  <div class="abas">
+    <button class="ativo" data-aba="pedidos">Pedidos</button>
+    <button data-aba="produtos">Produtos a separar</button>
+  </div>
+
+  <div id="aba-pedidos" class="tabela-wrap"><table id="t-pedidos"></table></div>
+  <div id="aba-produtos" class="tabela-wrap" hidden><table id="t-produtos"></table></div>
+</main>
+
+<script>
+montarTopo("preparar");
+
+const pedidos = D.preparar || [];
+const unicos = (campo) => [...new Set(pedidos.map((p) => p[campo]).filter(Boolean))].sort();
+for (const [id, campo] of [["f-filial", "filial"], ["f-uf", "uf"], ["f-cd", "cd"], ["f-pag", "pagamento"]])
+  $("#" + id).insertAdjacentHTML("beforeend", unicos(campo).map((v) => `<option>${esc(v)}</option>`).join(""));
+
+let ordem = { campo: "data_entrega", asc: true };
+let aberto = null;
+
+function filtrar() {
+  const b = $("#f-busca").value.trim().toUpperCase();
+  const f = { filial: $("#f-filial").value, uf: $("#f-uf").value, cd: $("#f-cd").value, pagamento: $("#f-pag").value };
+  return pedidos.filter((p) =>
+    Object.entries(f).every(([k, v]) => !v || p[k] === v) &&
+    (!b || [p.numero, p.cliente, p.responsavel, p.documento, p.cidade, ...p.itens.map((i) => i.produto + " " + i.sku)]
+      .join(" ").toUpperCase().includes(b)));
+}
+
+function tagEntrega(iso) {
+  const d = diasAte(iso);
+  if (d == null) return "—";
+  if (d < 0) return `<span class="tag hoje">${dataBR(iso)} · atrasado</span>`;
+  if (d === 0) return `<span class="tag hoje">${dataBR(iso)} · hoje</span>`;
+  if (d === 1) return `<span class="tag amanha">${dataBR(iso)} · amanhã</span>`;
+  return dataBR(iso);
+}
+
+function linkTel(t) {
+  const n = String(t || "").replace(/\D/g, "");
+  return n ? `<a href="https://wa.me/${n}" target="_blank" rel="noopener">${esc(t)}</a>` : "—";
+}
+
+function detalhe(p) {
+  return `<tr class="detalhe"><td colspan="9">
+    <dl class="det-grade">
+      <div><dt>Responsável</dt><dd>${esc(p.responsavel)}</dd><dt>Documento</dt><dd class="mono">${esc(p.documento)}</dd>
+        <dt>IE</dt><dd class="mono">${esc(p.ie) || "—"}</dd></div>
+      <div><dt>Endereço de entrega</dt><dd>${esc(p.endereco)}</dd><dt>CEP</dt><dd class="mono">${esc(p.cep)}</dd></div>
+      <div><dt>Telefone</dt><dd>${linkTel(p.telefone)}</dd><dt>E-mail</dt><dd>${esc(p.email) || "—"}</dd>
+        <dt>Pedido feito em</dt><dd>${dataBR(p.data_pedido)}</dd></div>
+    </dl>
+    <table class="itens"><thead><tr><th>SKU</th><th>Produto</th><th class="n">Qtd pedida</th><th class="n">Qtd preparar</th>
+      <th class="n">Valor</th></tr></thead><tbody>${p.itens.map((i) => `<tr><td class="mono">${esc(i.sku)}</td>
+      <td>${esc(i.produto)}</td><td class="n">${int(i.qtd_pedida)}</td><td class="n">${int(i.qtd_preparar)}</td>
+      <td class="n">${brl(i.valor)}</td></tr>`).join("")}</tbody></table>
+  </td></tr>`;
+}
+
+const colunas = [
+  ["numero", "Pedido"], ["filial", "Filial"], ["cd", "CD"], ["cliente", "Cliente"], ["cidade", "Cidade"],
+  ["data_entrega", "Entrega"], ["pagamento", "Pagamento"], ["n_itens", "Itens", true], ["total", "Total", true],
+];
+
+function render() {
+  const lista = filtrar().map((p) => ({ ...p, n_itens: p.itens.length }));
+  const { campo, asc } = ordem;
+  lista.sort((a, b) => ((a[campo] ?? "") > (b[campo] ?? "") ? 1 : (a[campo] ?? "") < (b[campo] ?? "") ? -1 : 0) * (asc ? 1 : -1));
+
+  const total = lista.reduce((s, p) => s + (p.total || 0), 0);
+  $("#kpis").innerHTML = [
+    kpi("Pedidos", int(lista.length), "", true),
+    kpi("Valor total", brl(total)),
+    kpi("Ticket médio", brl(lista.length ? total / lista.length : null)),
+    kpi("Entregam até amanhã", int(lista.filter((p) => (diasAte(p.data_entrega) ?? 99) <= 1).length)),
+    kpi("Clientes CPF", int(lista.filter((p) => p.documento.startsWith("CPF")).length), "não elegíveis — serão cancelados"),
+  ].join("");
+
+  $("#t-pedidos").innerHTML = lista.length ? `<thead><tr>${colunas.map(([c, n, num]) =>
+    `<th data-c="${c}" class="${num ? "n" : ""}">${n}${ordem.campo === c ? (ordem.asc ? " ↑" : " ↓") : ""}</th>`).join("")}</tr></thead>
+    <tbody>${lista.map((p) => {
+      const chave = p.filial + p.numero;
+      return `<tr class="clicavel${aberto === chave ? " aberto" : ""}" data-k="${chave}">
+        <td class="mono">${p.numero}</td><td><span class="tag ${p.filial.toLowerCase()}">${p.filial}</span></td>
+        <td class="fraco">${esc(p.cd)}</td>
+        <td>${esc(p.cliente)}${p.documento.startsWith("CPF") ? ' <span class="tag cpf">CPF</span>' : ""}</td>
+        <td class="fraco">${esc(p.cidade)}</td><td>${tagEntrega(p.data_entrega)}</td><td class="fraco">${esc(p.pagamento)}</td>
+        <td class="n">${p.n_itens}</td><td class="n">${brl(p.total)}</td></tr>${aberto === chave ? detalhe(p) : ""}`;
+    }).join("")}</tbody>` : `<tbody><tr><td class="vazio">Nenhum pedido a preparar${pedidos.length ? " com esses filtros" : ""}.</td></tr></tbody>`;
+
+  // Consolidado de produtos para separação
+  const prod = {};
+  for (const p of lista) for (const i of p.itens) {
+    const k = i.sku + "|" + i.produto;
+    prod[k] ??= { sku: i.sku, produto: i.produto, qtd: 0, pedidos: 0, valor: 0 };
+    prod[k].qtd += i.qtd_preparar || 0; prod[k].pedidos++; prod[k].valor += i.valor || 0;
+  }
+  const lp = Object.values(prod).sort((a, b) => b.qtd - a.qtd);
+  $("#t-produtos").innerHTML = `<thead><tr><th>SKU</th><th>Produto</th><th class="n">Qtd a separar</th><th class="n">Pedidos</th>
+    <th class="n">Valor</th></tr></thead><tbody>${lp.map((x) => `<tr><td class="mono">${esc(x.sku)}</td><td>${esc(x.produto)}</td>
+    <td class="n"><b>${int(x.qtd)}</b></td><td class="n">${x.pedidos}</td><td class="n">${brl(x.valor)}</td></tr>`).join("")}</tbody>`;
+  return lista;
+}
+
+$("#t-pedidos").addEventListener("click", (e) => {
+  const th = e.target.closest("th[data-c]");
+  if (th) {
+    ordem = { campo: th.dataset.c, asc: ordem.campo === th.dataset.c ? !ordem.asc : true };
+    return render();
+  }
+  const tr = e.target.closest("tr.clicavel");
+  if (tr) { aberto = aberto === tr.dataset.k ? null : tr.dataset.k; render(); }
+});
+document.querySelectorAll(".filtros input, .filtros select").forEach((el) => el.addEventListener("input", render));
+document.querySelectorAll(".abas button").forEach((b) => b.addEventListener("click", () => {
+  document.querySelectorAll(".abas button").forEach((x) => x.classList.toggle("ativo", x === b));
+  $("#aba-pedidos").hidden = b.dataset.aba !== "pedidos";
+  $("#aba-produtos").hidden = b.dataset.aba !== "produtos";
+}));
+
+$("#b-csv").addEventListener("click", () => {
+  const cab = ["Pedido", "Filial", "UF", "CD", "Cliente", "Documento", "Cidade", "Data pedido", "Data entrega", "Pagamento",
+    "Telefone", "SKU", "Produto", "Qtd pedida", "Qtd preparar", "Valor item", "Total pedido"];
+  const linhas = filtrar().flatMap((p) => p.itens.map((i) => [p.numero, p.filial, p.uf, p.cd, p.cliente, p.documento, p.cidade,
+    dataBR(p.data_pedido), dataBR(p.data_entrega), p.pagamento, p.telefone, i.sku, i.produto, i.qtd_pedida, i.qtd_preparar,
+    String(i.valor ?? "").replace(".", ","), String(p.total ?? "").replace(".", ",")]));
+  const csv = [cab, ...linhas].map((l) => l.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(";")).join("\r\n");
+  const a = Object.assign(document.createElement("a"), {
+    href: URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" })),
+    download: `pedidos_a_preparar_${new Date().toISOString().slice(0, 10)}.csv`,
+  });
+  a.click();
+});
+
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Painel BEES</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="estilo.css">
+<script src="dados.js"></script>
+<script src="comum.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+<main>
+  <h1>Dashboard</h1>
+  <p class="sub">Visão geral dos pedidos BEES — Rigarr e Castas</p>
+
+  <div class="grade g-kpi" id="kpis-fluxo"></div>
+
+  <div class="secao-titulo">Vendas entregues</div>
+  <div class="grade g-kpi" id="kpis-vendas" style="margin-top:0"></div>
+
+  <div class="grade g-2 secao" style="margin-top:16px">
+    <div class="card">
+      <h2>Faturamento mensal <small>entregues · últimos 12 meses</small></h2>
+      <div class="grafico alto"><canvas id="g-mensal"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Por estado <small>últimos 90 dias</small></h2>
+      <div id="l-uf"></div>
+      <h2 style="margin-top:22px">Formas de pagamento <small>90 dias</small></h2>
+      <div id="l-pag"></div>
+    </div>
+  </div>
+
+  <div class="grade g-2i secao" style="margin-top:16px">
+    <div class="card">
+      <h2>Produtos mais vendidos <small>por valor · 90 dias</small></h2>
+      <div id="l-produtos"></div>
+    </div>
+    <div class="card">
+      <h2>Cidades <small>por valor · 90 dias</small></h2>
+      <div id="l-cidades"></div>
+    </div>
+  </div>
+
+  <div class="secao-titulo">Operação</div>
+  <div class="grade g-2">
+    <div class="card">
+      <h2>Mensagens e e-mails enviados <small>últimos 30 dias</small></h2>
+      <div class="grafico"><canvas id="g-msgs"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Fila de cadastro <small>novos clientes aguardando Winthor</small></h2>
+      <div id="l-cadastro"></div>
+    </div>
+  </div>
+
+  <div class="card secao" style="margin-top:16px">
+    <h2>Pedidos não emitidos no Winthor</h2>
+    <div class="grade g-3" id="l-nao-emitidos-sit" style="margin-bottom:16px"></div>
+    <div class="tabela-wrap" style="max-height:420px">
+      <table id="t-nao-emitidos"></table>
+    </div>
+  </div>
+
+  <div class="secao-titulo">Clientes consultados na Receita (cnpja)</div>
+  <div class="grade g-3">
+    <div class="card"><h2>Porte</h2><div id="l-porte"></div></div>
+    <div class="card"><h2>Estado</h2><div id="l-cnpj-uf"></div></div>
+    <div class="card"><h2>Atividade principal</h2><div id="l-ativ"></div></div>
+  </div>
+
+  <div class="secao-titulo">Banco de dados</div>
+  <div class="tabela-wrap"><table id="t-tabelas"></table></div>
+</main>
+
+<script>
+montarTopo("dash");
+
+const E = D.entregues || {};
+const prep = D.preparar || [];
+const ne = D.nao_emitidos || { pedidos: [], por_situacao: [] };
+const msgs = D.mensagens || {};
+
+// --- KPIs de fluxo ---
+const valorPrep = prep.reduce((s, p) => s + (p.total || 0), 0);
+const urgentes = prep.filter((p) => (diasAte(p.data_entrega) ?? 99) <= 1).length;
+const neAbertos = ne.pedidos.filter((p) => p.situacao !== "CANCELADO");
+const msgHoje = Object.values(msgs.hoje || {}).reduce((a, b) => a + b, 0);
+$("#kpis-fluxo").innerHTML = [
+  kpi("A preparar", int(prep.length), `${brl(valorPrep)} · <b>${urgentes}</b> entregam até amanhã`, true),
+  kpi("A ser entregues", int(D.a_entregar?.pedidos), brl(D.a_entregar?.valor)),
+  kpi("Não emitidos no Winthor", int(neAbertos.length), brl(neAbertos.reduce((s, p) => s + (p.total || 0), 0)) + " (sem cancelados)"),
+  kpi("Fila de cadastro", int((D.cadastro || []).length), `${(D.cadastro || []).filter((c) => c.tipo === "CPF").length} CPF`),
+  kpi("Envios hoje", int(msgHoje), Object.entries(msgs.hoje || {}).map(([k, v]) => `${k.toLowerCase()}: ${v}`).join(" · ") || "nenhum"),
+].join("");
+
+// --- KPIs de vendas ---
+const d30 = E.d30 || {}, ant = E.d30_anterior || {};
+$("#kpis-vendas").innerHTML = [
+  kpi("Faturamento 30 dias", brl(d30.valor), variacao(d30.valor, ant.valor)),
+  kpi("Pedidos entregues 30 dias", int(d30.pedidos), variacao(d30.pedidos, ant.pedidos)),
+  kpi("Ticket médio 30 dias", brl(d30.ticket), variacao(d30.ticket, ant.ticket)),
+  kpi("Clientes ativos 90 dias", int(E.clientes_90d?.ativos), `${int(E.clientes_90d?.recorrentes)} compraram mais de uma vez`),
+  kpi("Histórico total", brl(E.total_valor, true), `${int(E.total_pedidos)} pedidos desde ${dataBR(E.primeira_entrega)}`),
+].join("");
+
+// --- Gráficos ---
+Chart.defaults.font.family = css("--font");
+Chart.defaults.color = css("--text-2");
+Chart.defaults.borderColor = css("--border");
+const cores = { Rigarr: css("--rigarr"), Castas: css("--castas") };
+
+if (E.mensal) {
+  new Chart($("#g-mensal"), {
+    type: "bar",
+    data: {
+      labels: E.mensal.meses.map(mesBR),
+      datasets: Object.keys(E.mensal.valor).map((f) => ({
+        label: f, data: E.mensal.valor[f], backgroundColor: cores[f], borderRadius: 4, stack: "s",
+        pedidos: E.mensal.pedidos[f],
+      })),
+    },
+    options: {
+      maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { position: "bottom", labels: { usePointStyle: true, boxWidth: 8 } },
+        tooltip: {
+          callbacks: {
+            label: (c) => ` ${c.dataset.label}: ${brl(c.raw)} (${c.dataset.pedidos[c.dataIndex]} pedidos)`,
+            footer: (itens) => "Total: " + brl(itens.reduce((s, i) => s + i.raw, 0)),
+          },
+        },
+      },
+      scales: {
+        x: { grid: { display: false } },
+        y: { ticks: { callback: (v) => brl(v, true) } },
+      },
+    },
+  });
+}
+
+if (msgs.dias) {
+  const paleta = [css("--accent"), css("--castas"), css("--ok"), css("--warn")];
+  new Chart($("#g-msgs"), {
+    type: "bar",
+    data: {
+      labels: msgs.dias.map((d) => d.slice(8) + "/" + d.slice(5, 7)),
+      datasets: Object.keys(msgs.por_tipo).map((t, i) => ({
+        label: { CLIENTE: "Aviso financeiro", SAUDACAO: "Saudação", CADASTRO_EMAIL: "E-mail cadastro" }[t] || t,
+        data: msgs.por_tipo[t], backgroundColor: paleta[i % paleta.length], borderRadius: 3, stack: "s",
+      })),
+    },
+    options: {
+      maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: { legend: { position: "bottom", labels: { usePointStyle: true, boxWidth: 8 } } },
+      scales: { x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 12 } }, y: { ticks: { precision: 0 } } },
+    },
+  });
+}
+
+// --- Listas ---
+$("#l-uf").innerHTML = barras(E.uf_90d, (x) => x.uf, (x) => x.valor, (v) => brl(v, true), (x) => `${x.pedidos} ped.`);
+$("#l-pag").innerHTML = barras(E.pagamentos_90d?.slice(0, 6), (x) => x.forma, (x) => x.pedidos, int);
+$("#l-produtos").innerHTML = barras(E.produtos_90d?.slice(0, 12), (x) => x.produto, (x) => x.valor, (v) => brl(v, true), (x) => `${int(x.qtd)} un`);
+$("#l-cidades").innerHTML = barras(E.cidades_90d, (x) => x.cidade, (x) => x.valor, (v) => brl(v, true), (x) => `${x.pedidos} ped.`);
+
+const cad = D.cadastro || [];
+const cadUF = ["RJ", "SP", "MG", "ES"].map((uf) => ({
+  uf, cnpj: cad.filter((c) => c.uf === uf && c.tipo === "CNPJ").length, cpf: cad.filter((c) => c.uf === uf && c.tipo === "CPF").length,
+}));
+$("#l-cadastro").innerHTML = barras(cadUF, (x) => x.uf, (x) => x.cnpj + x.cpf, int, (x) => `${x.cnpj} CNPJ · ${x.cpf} CPF`)
+  + (cad.length ? `<div class="tabela-wrap" style="margin-top:16px;max-height:190px"><table>
+      <thead><tr><th>UF</th><th>Cliente</th><th>Cidade</th><th>Tipo</th></tr></thead>
+      <tbody>${cad.map((c) => `<tr><td>${c.uf}</td><td>${esc(c.cliente)}</td><td class="fraco">${esc(c.cidade)}</td>
+        <td><span class="tag ${c.tipo === "CPF" ? "cpf" : ""}">${c.tipo}</span></td></tr>`).join("")}</tbody></table></div>` : "");
+
+// --- Não emitidos ---
+$("#l-nao-emitidos-sit").innerHTML = ne.por_situacao.map((s) =>
+  `<div class="kpi"><div class="rot">${esc(s.situacao)}</div><div class="val" style="font-size:20px">${int(s.pedidos)}</div>
+   <div class="det">${brl(s.valor)}</div></div>`).join("");
+$("#t-nao-emitidos").innerHTML = `<thead><tr><th>Pedido</th><th>Filial</th><th>Cliente</th><th>CD</th><th>Entrega</th>
+  <th class="n">Total</th><th>Situação</th><th>Motivo / ação</th></tr></thead><tbody>${ne.pedidos.map((p) => `<tr>
+  <td class="mono">${p.numero}</td><td><span class="tag ${p.filial.toLowerCase()}">${p.filial}</span></td>
+  <td>${esc(p.cliente)}</td><td class="fraco">${esc(p.cd)}</td><td>${dataBR(p.data_entrega)}</td>
+  <td class="n">${brl(p.total)}</td><td>${esc(p.situacao)}</td><td class="fraco">${esc(p.motivo)}</td></tr>`).join("")}</tbody>`;
+
+// --- CNPJ ---
+const C = D.cnpj || {};
+$("#l-porte").innerHTML = barras(C.por_porte, (x) => x.nome, (x) => x.qtd);
+$("#l-cnpj-uf").innerHTML = barras(C.por_uf, (x) => x.nome, (x) => x.qtd);
+$("#l-ativ").innerHTML = barras(C.atividades, (x) => x.nome, (x) => x.qtd);
+
+// --- Tabelas do banco ---
+$("#t-tabelas").innerHTML = `<thead><tr><th>Tabela</th><th class="n">Linhas</th></tr></thead><tbody>${(D.tabelas || [])
+  .map((t) => `<tr><td class="mono">${t.tabela}</td><td class="n">${int(t.linhas)}</td></tr>`).join("")}</tbody>`;
+</script>
+</body>
+</html>
