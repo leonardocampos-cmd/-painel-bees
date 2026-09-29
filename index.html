@@ -46,6 +46,24 @@
     </div>
   </div>
 
+  <div class="secao-titulo">Robô de baixa no BEES <span id="ref-robo" style="text-transform:none;letter-spacing:0;font-weight:400"></span></div>
+  <div class="grade g-kpi" id="kpis-robo" style="margin-top:0"></div>
+  <div class="grade g-2" style="margin-top:16px">
+    <div class="card">
+      <h2>Ações do robô por dia <small>últimos 30 dias</small></h2>
+      <div class="grafico"><canvas id="g-robo"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Pendências <small>pedidos a ser entregues</small></h2>
+      <div id="l-pendencias"></div>
+      <p class="fraco" style="font-size:12px;margin-top:14px">Detalhes na página <a href="entregar.html" style="color:var(--accent)">A entregar</a>.</p>
+    </div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <h2>Últimas ações do robô</h2>
+    <div class="tabela-wrap" style="max-height:340px"><table id="t-robo"></table></div>
+  </div>
+
   <div class="secao-titulo">Operação</div>
   <div class="grade g-2">
     <div class="card">
@@ -84,6 +102,9 @@ const E = D.entregues || {};
 const prep = D.preparar || [];
 const ne = D.nao_emitidos || { pedidos: [], por_situacao: [] };
 const msgs = D.mensagens || {};
+// Pedidos que o robô já baixou continuam na lista até a próxima coleta — ficam fora dos "em aberto"
+const listaEntregar = D.a_entregar?.lista || [];
+const emAberto = listaEntregar.filter((p) => !["Baixado pelo robô", "Baixado, mas teve devolução", "Falha marcada pelo robô"].includes(p.acao));
 
 // --- KPIs de fluxo ---
 const valorPrep = prep.reduce((s, p) => s + (p.total || 0), 0);
@@ -93,7 +114,7 @@ const TIPOS = { CLIENTE: "Aviso financeiro", SAUDACAO: "Saudação", CADASTRO_EM
 const msgHoje = Object.values(msgs.hoje || {}).reduce((a, b) => a + b, 0);
 $("#kpis-fluxo").innerHTML = [
   kpi("A preparar", int(prep.length), `${brl(valorPrep)} · <b>${urgentes}</b> entregam até amanhã`, true),
-  kpi("A ser entregues", int(D.a_entregar?.pedidos), brl(D.a_entregar?.valor)),
+  kpi("A ser entregues", int(emAberto.length), `${brl(emAberto.reduce((s, p) => s + (p.total || 0), 0))} · sem os já baixados`),
   kpi("Não emitidos no Winthor", int(neAbertos.length), brl(neAbertos.reduce((s, p) => s + (p.total || 0), 0)) + " (sem cancelados)"),
   kpi("Fila de cadastro", int((D.cadastro || []).length), `${(D.cadastro || []).filter((c) => c.tipo === "CPF").length} CPF`),
   kpi("Envios hoje", int(msgHoje), Object.entries(msgs.hoje || {}).map(([k, v]) => `${TIPOS[k] || k}: ${v}`).join(" · ") || "nenhum"),
@@ -186,6 +207,46 @@ $("#l-cadastro").innerHTML = barras(cadUF, (x) => x.uf, (x) => x.cnpj + x.cpf, i
       <thead><tr><th>UF</th><th>Cliente</th><th>Cidade</th><th>Tipo</th></tr></thead>
       <tbody>${cad.map((c) => `<tr><td>${c.uf}</td><td>${esc(c.cliente)}</td><td class="fraco">${esc(c.cidade)}</td>
         <td><span class="tag ${c.tipo === "CPF" ? "cpf" : ""}">${c.tipo}</span></td></tr>`).join("")}</tbody></table></div>` : "");
+
+// --- Robô de baixa ---
+const R = D.robo || {};
+if (R.total) {
+  $("#ref-robo").textContent = R.ultima_execucao ? `— última ação em ${new Date(R.ultima_execucao).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}` : "";
+  const pf = R.por_filial || {};
+  const porFilial = (...tipos) => Object.entries(pf).map(([f, v]) => `${f} ${int(tipos.reduce((s, t) => s + v[t], 0))}`).join(" · ");
+  $("#kpis-robo").innerHTML = [
+    kpi("Baixas confirmadas", int(R.total["Baixa"] + R.total["Baixa com corte"]), porFilial("Baixa", "Baixa com corte"), true),
+    kpi("Baixas com corte", int(R.total["Baixa com corte"]), "itens não faturados ou devolvidos"),
+    kpi("Baixas integrais", int(R.integrais), "corte reprecificaria o pedido"),
+    kpi("Falhas marcadas", int(R.total["Falha na entrega"]), "devolução total"),
+    kpi("Erros", int(R.total["Erro"]), R.total["Erro"] ? "ver Log_Baixas_BEES" : "nenhum"),
+  ].join("");
+
+  const coresRobo = { "Baixa": css("--ok"), "Baixa com corte": css("--accent"), "Falha na entrega": css("--danger") };
+  new Chart($("#g-robo"), {
+    type: "bar",
+    data: {
+      labels: R.dias.map((d) => d.slice(8) + "/" + d.slice(5, 7)),
+      datasets: Object.keys(R.por_dia).map((t) => ({ label: t, data: R.por_dia[t], backgroundColor: coresRobo[t], borderRadius: 3, stack: "s" })),
+    },
+    options: {
+      maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: { legend: { position: "bottom", labels: { usePointStyle: true, boxWidth: 8 } } },
+      scales: { x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 12 } }, y: { ticks: { precision: 0 } } },
+    },
+  });
+
+  const TAG = { "BAIXADO": "ok", "BAIXADO COM CORTE": "amanha", "FALHA MARCADA": "hoje" };
+  $("#t-robo").innerHTML = `<thead><tr><th>Quando</th><th>Filial</th><th>Pedido</th><th>Resultado</th><th>Detalhe</th></tr></thead>
+    <tbody>${R.ultimos.map((u) => `<tr><td class="fraco">${esc(u.quando.slice(8, 10) + "/" + u.quando.slice(5, 7) + " " + u.quando.slice(11))}</td>
+      <td><span class="tag ${u.filial.toLowerCase()}">${u.filial}</span></td><td class="mono">${u.numero}</td>
+      <td><span class="tag ${TAG[u.resultado] || (u.resultado.startsWith("ERRO") ? "hoje" : "")}">${esc(u.resultado)}</span></td>
+      <td class="fraco">${esc(u.detalhe)}</td></tr>`).join("")}</tbody>`;
+}
+const pend = ["Dar baixa no BEES", "Aguardando pagamento", "Falha na entrega (devolução)", "Baixado, mas teve devolução", "Sem pedido no Winthor", "Cancelar no BEES", "Aguardando faturamento"]
+  .map((a) => ({ a, l: listaEntregar.filter((p) => p.acao === a) })).filter((x) => x.l.length);
+$("#l-pendencias").innerHTML = barras(pend, (x) => x.a, (x) => x.l.length, int, (x) => brl(x.l.reduce((s, p) => s + (p.total || 0), 0), true));
 
 // --- Não emitidos ---
 $("#l-nao-emitidos-sit").innerHTML = ne.por_situacao.map((s) =>
