@@ -247,3 +247,18 @@ tbody tr.aberto td:first-child { box-shadow: inset 4px 0 0 var(--faixa); }
   .fluxo { padding: 20px 18px; }
   .gerado { margin-left: 0; width: 100%; order: 3; }
 }
+
+/* --- Filtro de período do dashboard (fica visível ao rolar) ---------------- */
+.filtros-periodo {
+  position: sticky; top: 57px; z-index: 5; margin: 36px 0 0; padding: 12px 0;
+  display: flex; align-items: center; gap: 12px 18px; flex-wrap: wrap; background: var(--papel);
+}
+.filtros-periodo label { display: flex; align-items: center; gap: 8px; font-weight: 600; font-family: var(--titulo); }
+.filtros-periodo select {
+  padding: 8px 14px; border: 1px solid var(--linha); border-radius: 999px; background: var(--superficie);
+  color: var(--tinta); font: inherit; font-family: var(--font); font-weight: 500; min-width: 96px;
+}
+.filtros-periodo select:focus { outline: 2px solid var(--tinta); outline-offset: 1px; }
+.filtros-periodo p { font-size: 13px; }
+.filtros-periodo + .secao-titulo { margin-top: 18px; }
+@media (max-width: 640px) { .filtros-periodo { top: 96px; } }

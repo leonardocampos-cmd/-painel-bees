@@ -19,102 +19,85 @@
   <h1 class="frase" id="frase"></h1>
   <nav class="fluxo" id="fluxo" aria-label="Pedidos por etapa"></nav>
 
-  <div class="secao-titulo">Vendas entregues <span id="ref-entregues"></span></div>
-  <div class="grade g-kpi" id="kpis-vendas" style="margin-top:0"></div>
+  <div class="filtros-periodo" role="group" aria-label="Período analisado">
+    <label>Ano <select id="f-ano"></select></label>
+    <label>Mês <select id="f-mes"></select></label>
+    <label>Estado <select id="f-uf"><option value="">Todos</option></select></label>
+    <p class="fraco" id="ref-periodo"></p>
+  </div>
 
-  <div class="grade g-2 secao" style="margin-top:16px">
+  <div class="secao-titulo">Vendas</div>
+  <div class="grade g-kpi" id="kpis-vendas" style="margin-top:0"></div>
+  <div class="grade g-2" style="margin-top:16px">
     <div class="card">
-      <h2>Faturamento mensal <small>pedidos entregues nos últimos 12 meses</small></h2>
-      <div class="grafico alto"><canvas id="g-mensal"></canvas></div>
+      <h2>Receita líquida por mês <small>faturado menos devolvido, no ano escolhido</small></h2>
+      <div class="grafico alto"><canvas id="g-receita"></canvas></div>
     </div>
     <div class="card">
-      <h2>Por estado <small>últimos 90 dias</small></h2>
+      <h2>Por estado</h2>
       <div id="l-uf"></div>
-      <h2 style="margin-top:28px">Formas de pagamento <small>últimos 90 dias</small></h2>
+      <h2 style="margin-top:28px">Formas de pagamento <small>dos pedidos com dados do BEES</small></h2>
       <div id="l-pag"></div>
     </div>
   </div>
 
-  <div class="grade g-2i secao" style="margin-top:16px">
-    <div class="card">
-      <h2>Produtos mais vendidos <small>por valor, últimos 90 dias</small></h2>
-      <div id="l-produtos"></div>
-    </div>
-    <div class="card">
-      <h2>Cidades <small>por valor, últimos 90 dias</small></h2>
-      <div id="l-cidades"></div>
-    </div>
-  </div>
-
-  <div class="secao-titulo">Robô de baixa no BEES <span id="ref-robo"></span></div>
-  <div class="grade g-kpi" id="kpis-robo" style="margin-top:0"></div>
+  <div class="secao-titulo">Entrega</div>
+  <div class="grade g-kpi" id="kpis-entrega" style="margin-top:0"></div>
   <div class="grade g-2" style="margin-top:16px">
     <div class="card">
-      <h2>Ações do robô por dia <small>últimos 30 dias</small></h2>
-      <div class="grafico"><canvas id="g-robo"></canvas></div>
+      <h2>Resultado dos pedidos por mês <small>entregues, devolvidos e cancelados, no ano escolhido</small></h2>
+      <div class="grafico"><canvas id="g-resultado"></canvas></div>
     </div>
     <div class="card">
-      <h2>Pendências <small>pedidos a ser entregues</small></h2>
-      <div id="l-pendencias"></div>
-      <p class="fraco" style="font-size:13px;margin-top:16px">Cada pedido está na página <a href="entregar.html">A entregar</a>.</p>
+      <h2>Por que não foram entregues <small>devoluções e cancelamentos, pelos motivos do BEES</small></h2>
+      <div id="l-motivos"></div>
     </div>
   </div>
   <div class="card" style="margin-top:16px">
-    <h2>Últimas ações do robô</h2>
-    <div class="tabela-wrap" style="max-height:340px"><table id="t-robo"></table></div>
+    <h2>Dias entre a emissão da nota e a entrega <small>da data de faturamento até o pagamento do título</small></h2>
+    <div class="grafico" style="height:220px"><canvas id="g-prazo"></canvas></div>
   </div>
 
-  <div class="secao-titulo">Operação</div>
-  <div class="grade g-kpi" id="kpis-operacao" style="margin:0 0 32px"></div>
+  <div class="secao-titulo">Indústrias e produtos</div>
+  <div class="grade g-3">
+    <div class="card"><h2>Por indústria <small>valor faturado e quanto voltou em devolução</small></h2><div id="l-industria"></div></div>
+    <div class="card"><h2>Por seção</h2><div id="l-secao"></div></div>
+    <div class="card"><h2>Produtos mais vendidos</h2><div id="l-produtos"></div></div>
+  </div>
+
+  <div class="secao-titulo">Clientes</div>
   <div class="grade g-2">
     <div class="card">
-      <h2>Mensagens e e-mails enviados <small>últimos 30 dias</small></h2>
-      <div class="grafico"><canvas id="g-msgs"></canvas></div>
+      <h2>Clientes novos e recorrentes por mês <small id="ref-novos">no ano escolhido</small></h2>
+      <div class="grafico"><canvas id="g-clientes"></canvas></div>
     </div>
     <div class="card">
-      <h2>Fila de cadastro <small>novos clientes CNPJ aguardando Winthor</small></h2>
-      <div id="l-cadastro"></div>
+      <h2>Maiores clientes <small>por receita líquida no período</small></h2>
+      <div id="l-top-clientes"></div>
     </div>
   </div>
 
-  <div class="card secao" style="margin-top:16px">
-    <h2>Pedidos não emitidos no Winthor</h2>
-    <div class="grade g-3" id="l-nao-emitidos-sit" style="margin-bottom:16px"></div>
-    <div class="tabela-wrap" style="max-height:420px">
-      <table id="t-nao-emitidos"></table>
+  <div class="secao-titulo">Quando os pedidos chegam</div>
+  <div class="grade g-2i">
+    <div class="card">
+      <h2>Por dia da semana <small>dia em que o pedido foi feito</small></h2>
+      <div class="grafico"><canvas id="g-semana"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Por horário <small>hora do pedido no BEES, quando disponível</small></h2>
+      <div class="grafico"><canvas id="g-hora"></canvas></div>
     </div>
   </div>
-
-  <div class="secao-titulo">Clientes consultados na Receita <span>via cnpja</span></div>
-  <div class="grade g-3">
-    <div class="card"><h2>Porte</h2><div id="l-porte"></div></div>
-    <div class="card"><h2>Estado</h2><div id="l-cnpj-uf"></div></div>
-    <div class="card"><h2>Atividade principal</h2><div id="l-ativ"></div></div>
-  </div>
-
-  <div class="secao-titulo">Banco de dados</div>
-  <div class="tabela-wrap"><table id="t-tabelas"></table></div>
 </main>
 
 <script>
 montarTopo("dash");
 
-const E = D.entregues || {};
+// --- Abertura: frase do dia e fluxo dos pedidos (situação de hoje, sem filtro) ---
 const prep = D.preparar || [];
-const ne = D.nao_emitidos || { pedidos: [], por_situacao: [] };
-const msgs = D.mensagens || {};
-// Pedidos que o robô já baixou continuam na lista até a próxima coleta — ficam fora dos "em aberto"
 const listaEntregar = D.a_entregar?.lista || [];
-// Pedidos que o robô já resolveu no BEES continuam na tabela até a próxima coleta: ficam de fora
-const resolvidos = new Set(listaEntregar.filter((p) => /^(Baixado|Falha marcada)/.test(p.acao)).map((p) => p.filial + p.numero));
-const nePend = ne.pedidos.filter((p) => !resolvidos.has(p.filial + p.numero));
-const emAberto = listaEntregar.filter((p) => !["Baixado pelo robô", "Baixado, mas teve devolução", "Falha marcada pelo robô"].includes(p.acao));
-
-// --- Abertura: frase do dia e fluxo dos pedidos ---
-const valorPrep = prep.reduce((s, p) => s + (p.total || 0), 0);
+const soma = (l) => l.reduce((s, p) => s + (p.total || 0), 0);
 const urgentes = prep.filter((p) => (diasAte(p.data_entrega) ?? 99) <= 1).length;
-const TIPOS = { CLIENTE: "Aviso financeiro", SAUDACAO: "Saudação", CADASTRO_EMAIL: "E-mail cadastro" };
-const msgHoje = Object.values(msgs.hoje || {}).reduce((a, b) => a + b, 0);
 
 $("#hoje").textContent = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })
   .replace(/^./, (c) => c.toUpperCase());
@@ -123,10 +106,9 @@ $("#frase").innerHTML = prep.length
   : "Nenhum pedido para separar agora.";
 
 const porAcao = (...acoes) => listaEntregar.filter((p) => acoes.includes(p.acao));
-const soma = (l) => l.reduce((s, p) => s + (p.total || 0), 0);
 const etapas = [
   { nome: "A preparar", lista: prep, link: "preparar.html" },
-  { nome: "Aguardando nota", lista: porAcao("Aguardando faturamento"), link: "entregar.html" },
+  { nome: "Aguardando nota", lista: porAcao("Aguardando faturamento", "Não verificado"), link: "entregar.html" },
   { nome: "Em entrega", lista: porAcao("Em rota", "Aguardando pagamento", "Aguardando data de entrega"), link: "entregar.html" },
   { nome: "Pronto para baixa", lista: porAcao("Dar baixa no BEES"), link: "entregar.html" },
   { nome: "Precisa de atenção", lista: porAcao("Sem pedido no Winthor", "Cancelar no BEES", "Falha na entrega (devolução)", "Baixado, mas teve devolução"), link: "entregar.html" },
@@ -135,160 +117,209 @@ $("#fluxo").innerHTML = etapas.map((e) => `<a href="${e.link}">
   <div class="etapa-nome">${e.nome}</div><div class="etapa-n">${int(e.lista.length)}</div>
   <div class="etapa-det">${brl(soma(e.lista), true)}</div></a>`).join("");
 
-$("#kpis-operacao").innerHTML = [
-  kpi("Não emitidos no Winthor", int(nePend.filter((p) => p.situacao !== "CANCELADO").length), "pedidos a entregar sem nota, fora os cancelados"),
-  kpi("Fila de cadastro", int((D.cadastro || []).length), "CNPJ aguardando cadastro no Winthor"),
-  kpi("Envios hoje", int(msgHoje), Object.entries(msgs.hoje || {}).map(([k, v]) => `${TIPOS[k] || k}: ${v}`).join(", ") || "nenhum"),
-].join("");
-
-// --- KPIs de vendas ---
-const d30 = E.d30 || {}, ant = E.d30_anterior || {};
-if (E.referencia) {
-  const atraso = -diasAte(E.referencia);
-  const porFilial = Object.entries(E.ultima_por_filial || {}).map(([f, d]) => `${f} ${dataBR(d)}`).join(", ");
-  $("#ref-entregues").innerHTML = `até ${dataBR(E.referencia)}` + (atraso > 3
-    ? ` <span class="tag hoje" title="Última entrega registrada: ${porFilial}">coleta de entregues parada há ${atraso} dias</span>` : "");
+// --- Histórico do Winthor: um pedido por linha, filtrado no navegador ---
+const H = D.historico || { pedidos: [], itens: [], listas: {}, campos: [], campos_itens: [] };
+const L = H.listas || {};
+const aObj = (campos) => (linha) => Object.fromEntries(campos.map((c, i) => [c, linha[i]]));
+const PED = H.pedidos.map(aObj(H.campos));
+const ITENS = H.itens.map(aObj(H.campos_itens));
+for (const p of PED) {
+  p.uf_nome = L.uf?.[p.uf] ?? "";
+  p.ano = p.data?.slice(0, 4);
+  p.mes = p.data?.slice(5, 7);
+  p.devTotal = p.posicao === "F" && p.devolvido > 0 && p.devolvido >= p.valor - 0.05;
+  p.entregue = p.posicao === "F" && !p.devTotal;
+  p.liquido = p.posicao === "F" ? p.valor - p.devolvido : 0;
+  p.itens = [];
 }
-$("#kpis-vendas").innerHTML = [
-  kpi("Faturamento 30 dias", brl(d30.valor), variacao(d30.valor, ant.valor)),
-  kpi("Pedidos entregues 30 dias", int(d30.pedidos), variacao(d30.pedidos, ant.pedidos)),
-  kpi("Ticket médio 30 dias", brl(d30.ticket), variacao(d30.ticket, ant.ticket)),
-  kpi("Clientes ativos 90 dias", int(E.clientes_90d?.ativos), `${int(E.clientes_90d?.recorrentes)} compraram mais de uma vez`),
-  kpi("Histórico total", brl(E.total_valor, true), `${int(E.total_pedidos)} pedidos desde ${dataBR(E.primeira_entrega)}`),
-].join("");
+for (const it of ITENS) PED[it.pedido]?.itens.push(it);
+const primeiraCompra = {};
+for (const p of PED) if (p.entregue && p.codcli != null && (!primeiraCompra[p.codcli] || p.data < primeiraCompra[p.codcli])) primeiraCompra[p.codcli] = p.data;
 
-// --- Gráficos ---
+const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+const anos = [...new Set(PED.map((p) => p.ano).filter(Boolean))].sort();
+$("#f-ano").innerHTML = anos.map((a) => `<option>${a}</option>`).join("");
+$("#f-ano").value = anos[anos.length - 1] || "";
+$("#f-mes").innerHTML = `<option value="">Todos</option>` + MESES.map((m, i) => `<option value="${String(i + 1).padStart(2, "0")}">${m}</option>`).join("");
+$("#f-uf").insertAdjacentHTML("beforeend", (L.uf || []).slice().sort().map((u) => `<option>${esc(u)}</option>`).join(""));
+
 Chart.defaults.font.family = css("--font");
 Chart.defaults.color = css("--text-2");
 Chart.defaults.borderColor = css("--border");
-const cores = { Rigarr: css("--rigarr"), Castas: css("--castas") };
-
-if (E.mensal) {
-  new Chart($("#g-mensal"), {
-    type: "bar",
-    data: {
-      labels: E.mensal.meses.map(mesBR),
-      datasets: Object.keys(E.mensal.valor).map((f) => ({
-        label: f, data: E.mensal.valor[f], backgroundColor: cores[f], borderRadius: 4, stack: "s",
-        pedidos: E.mensal.pedidos[f],
-      })),
-    },
-    options: {
-      maintainAspectRatio: false,
-      interaction: { mode: "index", intersect: false },
-      plugins: {
-        legend: { position: "bottom", labels: { usePointStyle: true, boxWidth: 8 } },
-        tooltip: {
-          callbacks: {
-            label: (c) => ` ${c.dataset.label}: ${brl(c.raw)} (${c.dataset.pedidos[c.dataIndex]} pedidos)`,
-            footer: (itens) => "Total: " + brl(itens.reduce((s, i) => s + i.raw, 0)),
-          },
-        },
-      },
-      scales: {
-        x: { grid: { display: false } },
-        y: { ticks: { callback: (v) => brl(v, true) } },
-      },
-    },
-  });
+const cor = { preto: css("--garrafa"), amarelo: css("--ambar"), alerta: css("--alerta"), apagado: css("--apagado"), faixa: css("--faixa") };
+const graficos = {};
+function grafico(id, config) {
+  graficos[id]?.destroy();
+  graficos[id] = new Chart($("#" + id), config);
 }
+const opcoesBarras = (extra = {}) => ({
+  maintainAspectRatio: false,
+  interaction: { mode: "index", intersect: false },
+  plugins: { legend: { position: "bottom", labels: { usePointStyle: true, boxWidth: 8 } } },
+  scales: { x: { grid: { display: false } }, y: { ticks: { precision: 0 } } },
+  ...extra,
+});
+const mediana = (v) => {
+  const a = v.filter((x) => x != null && !isNaN(x)).sort((x, y) => x - y);
+  if (!a.length) return null;
+  const m = Math.floor(a.length / 2);
+  return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2;
+};
+const dias = (de, ate) => (de && ate ? Math.round((new Date(ate) - new Date(de)) / 864e5) : null);
+const pct = (a, b) => (b ? `${((a / b) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%` : "—");
+const agrupar = (lista, chave, valor) => {
+  const g = {};
+  for (const x of lista) { const k = chave(x); if (k == null || k === "") continue; g[k] = (g[k] || 0) + valor(x); }
+  return Object.entries(g).map(([k, v]) => ({ k, v })).sort((a, b) => b.v - a.v);
+};
+const frase1 = (t) => String(t || "").toLowerCase().replace(/^./, (c) => c.toUpperCase());
+// "PERNOD RICARD BRASIL INDUSTRIA E COMERCIO LTDA" → "Pernod Ricard": corta na primeira palavra de razão social
+const PALAVRAS_RAZAO = new Set(["LTDA", "SA", "S.A.", "S/A", "BRASIL", "DO", "IND", "IND.", "INDUSTRIA", "INDUSTRIAS", "COM", "COM.",
+  "COMERCIO", "IMP", "IMP.", "EXP", "BEV", "WORLD", "MATRIZ", "E", "I.", "C.", "DE"]);
+const nomeIndustria = (t) => {
+  const palavras = String(t || "").trim().split(/\s+/);
+  const fim = palavras.findIndex((w, i) => i > 0 && PALAVRAS_RAZAO.has(w.toUpperCase().split("-")[0].replace(/,+$/, "")));
+  const nome = (fim > 0 ? palavras.slice(0, fim) : palavras).join(" ").replace(/-(LTDA|MATRIZ).*$/i, "");
+  return nome.toLowerCase().replace(/(^|[\s-])\S/g, (c) => c.toUpperCase());
+};
 
-if (msgs.dias) {
-  const paleta = [css("--garrafa"), css("--ambar"), css("--alerta"), css("--apagado")];
-  new Chart($("#g-msgs"), {
-    type: "bar",
-    data: {
-      labels: msgs.dias.map((d) => d.slice(8) + "/" + d.slice(5, 7)),
-      datasets: Object.keys(msgs.por_tipo).map((t, i) => ({
-        label: TIPOS[t] || t,
-        data: msgs.por_tipo[t], backgroundColor: paleta[i % paleta.length], borderRadius: 3, stack: "s",
-      })),
-    },
-    options: {
-      maintainAspectRatio: false,
-      interaction: { mode: "index", intersect: false },
-      plugins: { legend: { position: "bottom", labels: { usePointStyle: true, boxWidth: 8 } } },
-      scales: { x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 12 } }, y: { ticks: { precision: 0 } } },
-    },
-  });
-}
+function render() {
+  const ano = $("#f-ano").value, mes = $("#f-mes").value, uf = $("#f-uf").value;
+  const doAno = PED.filter((p) => p.ano === ano && (!uf || p.uf_nome === uf));
+  const sel = doAno.filter((p) => !mes || p.mes === mes);
+  const entregues = sel.filter((p) => p.entregue);
+  const faturados = sel.filter((p) => p.posicao === "F");
+  const cancelados = sel.filter((p) => p.posicao === "C");
+  const devolvidos = faturados.filter((p) => p.devolvido > 0);
+  const devTotais = faturados.filter((p) => p.devTotal);
+  const receita = faturados.reduce((s, p) => s + p.liquido, 0);
+  const periodo = mes ? `${MESES[+mes - 1].toLowerCase()} de ${ano}` : ano;
+  $("#ref-periodo").textContent = `${int(sel.length)} pedidos em ${periodo}${uf ? `, ${uf}` : ""}. Dados do Winthor atualizados em ${
+    H.atualizado_em ? new Date(H.atualizado_em).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "—"}.`;
 
-// --- Listas ---
-$("#l-uf").innerHTML = barras(E.uf_90d, (x) => x.uf, (x) => x.valor, (v) => brl(v, true), (x) => `${x.pedidos} ped.`);
-$("#l-pag").innerHTML = barras(E.pagamentos_90d?.slice(0, 6), (x) => x.forma, (x) => x.pedidos, int);
-$("#l-produtos").innerHTML = barras(E.produtos_90d?.slice(0, 12), (x) => x.produto, (x) => x.valor, (v) => brl(v, true), (x) => `${int(x.qtd)} un`);
-$("#l-cidades").innerHTML = barras(E.cidades_90d, (x) => x.cidade, (x) => x.valor, (v) => brl(v, true), (x) => `${x.pedidos} ped.`);
-
-const cad = D.cadastro || [];
-const cadUF = ["RJ", "SP", "MG", "ES"].map((uf) => ({ uf, n: cad.filter((c) => c.uf === uf).length }));
-$("#l-cadastro").innerHTML = barras(cadUF, (x) => x.uf, (x) => x.n, int)
-  + (cad.length ? `<div class="tabela-wrap" style="margin-top:16px;max-height:190px"><table>
-      <thead><tr><th>UF</th><th>Cliente</th><th>Cidade</th><th>CD</th></tr></thead>
-      <tbody>${cad.map((c) => `<tr><td>${c.uf}</td><td>${esc(c.cliente)}</td><td class="fraco">${esc(c.cidade)}</td>
-        <td class="fraco">${esc(c.cd)}</td></tr>`).join("")}</tbody></table></div>` : "");
-
-// --- Robô de baixa ---
-const R = D.robo || {};
-if (R.total) {
-  $("#ref-robo").textContent = R.ultima_execucao ? `última ação em ${new Date(R.ultima_execucao).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}` : "";
-  const pf = R.por_filial || {};
-  const porFilial = (...tipos) => Object.entries(pf).map(([f, v]) => `${f} ${int(tipos.reduce((s, t) => s + v[t], 0))}`).join(", ");
-  $("#kpis-robo").innerHTML = [
-    kpi("Baixas confirmadas", int(R.total["Baixa"] + R.total["Baixa com corte"]), porFilial("Baixa", "Baixa com corte"), true),
-    kpi("Baixas com corte", int(R.total["Baixa com corte"]), "itens não faturados ou devolvidos"),
-    kpi("Baixas integrais", int(R.integrais), "corte reprecificaria o pedido"),
-    kpi("Falhas marcadas", int(R.total["Falha na entrega"]), "devolução total"),
-    kpi("Erros", int(R.total["Erro"]), R.total["Erro"] ? "ver Log_Baixas_BEES" : "nenhum"),
+  // --- Vendas ---
+  const clientes = new Set(entregues.map((p) => p.codcli));
+  const novos = [...clientes].filter((c) => { const d = primeiraCompra[c]; return d && d.slice(0, 4) === ano && (!mes || d.slice(5, 7) === mes); });
+  const comprasPorCliente = {};
+  for (const p of entregues) comprasPorCliente[p.codcli] = (comprasPorCliente[p.codcli] || 0) + 1;
+  const recorrentes = Object.values(comprasPorCliente).filter((n) => n > 1).length;
+  $("#kpis-vendas").innerHTML = [
+    kpi("Receita líquida", brl(receita, receita >= 1e5), "faturado menos devolvido", true),
+    kpi("Pedidos entregues", int(entregues.length), `de ${int(sel.length)} pedidos feitos`),
+    kpi("Ticket médio", brl(entregues.length ? receita / entregues.length : null), "por pedido entregue"),
+    kpi("Clientes", int(clientes.size), `${int(novos.length)} compraram pela primeira vez`),
+    kpi("Recompra", pct(recorrentes, clientes.size), "clientes com mais de um pedido no período"),
   ].join("");
 
-  const coresRobo = { "Baixa": css("--garrafa"), "Baixa com corte": css("--ambar"), "Falha na entrega": css("--alerta") };
-  new Chart($("#g-robo"), {
+  const porMes = (fn) => MESES.map((_, i) => fn(doAno.filter((p) => +p.mes === i + 1)));
+  const destaque = (base) => MESES.map((_, i) => (!mes || +mes === i + 1 ? base : base + "55"));
+  grafico("g-receita", {
     type: "bar",
-    data: {
-      labels: R.dias.map((d) => d.slice(8) + "/" + d.slice(5, 7)),
-      datasets: Object.keys(R.por_dia).map((t) => ({ label: t, data: R.por_dia[t], backgroundColor: coresRobo[t], borderRadius: 3, stack: "s" })),
-    },
-    options: {
-      maintainAspectRatio: false,
-      interaction: { mode: "index", intersect: false },
-      plugins: { legend: { position: "bottom", labels: { usePointStyle: true, boxWidth: 8 } } },
-      scales: { x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 12 } }, y: { ticks: { precision: 0 } } },
-    },
+    data: { labels: MESES, datasets: [{ label: "Receita líquida", data: porMes((l) => l.reduce((s, p) => s + p.liquido, 0)),
+      backgroundColor: destaque(cor.preto), borderRadius: 6 }] },
+    options: opcoesBarras({ plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => " " + brl(c.raw) } } },
+      scales: { x: { grid: { display: false } }, y: { ticks: { callback: (v) => brl(v, true) } } } }),
+  });
+  $("#l-uf").innerHTML = barras(agrupar(faturados, (p) => p.uf_nome, (p) => p.liquido), (x) => x.k, (x) => x.v, (v) => brl(v, true));
+  $("#l-pag").innerHTML = barras(agrupar(entregues, (p) => L.pagamento?.[p.pagamento], () => 1).slice(0, 5), (x) => frase1(x.k), (x) => x.v, int);
+
+  // --- Entrega ---
+  const comDesfecho = faturados.length + cancelados.length;
+  const itensFat = faturados.flatMap((p) => p.itens);
+  const unPedidas = itensFat.reduce((s, i) => s + (i.qt_pedida || 0), 0);
+  const unCortadas = itensFat.reduce((s, i) => s + Math.max(0, (i.qt_pedida || 0) - (i.qt_faturada || 0)), 0);
+  const unDevolvidas = itensFat.reduce((s, i) => s + (i.qt_devolvida || 0), 0);
+  const prazoEntrega = entregues.map((p) => dias(p.faturado_em, p.pago_em)).filter((d) => d != null && d >= 0);
+  const prazoTotal = entregues.map((p) => dias(p.data, p.pago_em)).filter((d) => d != null && d >= 0);
+  const med = (v) => (v == null ? "—" : `${v.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} ${v === 1 ? "dia" : "dias"}`);
+  $("#kpis-entrega").innerHTML = [
+    kpi("Taxa de sucesso", pct(entregues.length, comDesfecho), "entregues sobre faturados e cancelados", true),
+    kpi("Devolvidos", int(devolvidos.length), `${int(devTotais.length)} devolução total, ${brl(devolvidos.reduce((s, p) => s + p.devolvido, 0), true)}`),
+    kpi("Cancelados", int(cancelados.length), pct(cancelados.length, sel.length) + " dos pedidos"),
+    kpi("Unidades cortadas no Winthor", int(unCortadas), `${pct(unCortadas, unPedidas)} das ${int(unPedidas)} pedidas; ${int(unDevolvidas)} devolvidas`),
+    kpi("Emissão até entrega", med(mediana(prazoEntrega)), `mediana; do pedido à entrega: ${med(mediana(prazoTotal))}`),
+  ].join("");
+
+  grafico("g-resultado", {
+    type: "bar",
+    data: { labels: MESES, datasets: [
+      { label: "Entregues", data: porMes((l) => l.filter((p) => p.entregue).length), backgroundColor: cor.preto, borderRadius: 4, stack: "s" },
+      { label: "Devolução total", data: porMes((l) => l.filter((p) => p.devTotal).length), backgroundColor: cor.amarelo, borderRadius: 4, stack: "s" },
+      { label: "Cancelados", data: porMes((l) => l.filter((p) => p.posicao === "C").length), backgroundColor: cor.alerta, borderRadius: 4, stack: "s" },
+    ] },
+    options: opcoesBarras(),
+  });
+  const perdas = sel.filter((p) => p.motivo != null && (p.posicao === "C" || p.devolvido > 0));
+  $("#l-motivos").innerHTML = barras(agrupar(perdas, (p) => L.motivo?.[p.motivo], () => 1), (x) => x.k, (x) => x.v, int,
+    (x) => pct(x.v, perdas.length));
+
+  const faixas = ["No mesmo dia", "1 dia", "2 dias", "3 dias", "4 a 7 dias", "Mais de 7"];
+  const faixa = (d) => (d <= 0 ? 0 : d === 1 ? 1 : d === 2 ? 2 : d === 3 ? 3 : d <= 7 ? 4 : 5);
+  const contagem = faixas.map(() => 0);
+  for (const d of prazoEntrega) contagem[faixa(d)]++;
+  grafico("g-prazo", {
+    type: "bar",
+    data: { labels: faixas, datasets: [{ label: "Pedidos", data: contagem, backgroundColor: cor.preto, borderRadius: 6 }] },
+    options: opcoesBarras({ plugins: { legend: { display: false } } }),
   });
 
-  const TAG = { "BAIXADO": "ok", "BAIXADO COM CORTE": "amanha", "FALHA MARCADA": "hoje" };
-  $("#t-robo").innerHTML = `<thead><tr><th>Quando</th><th>Filial</th><th>Pedido</th><th>Resultado</th><th>Detalhe</th></tr></thead>
-    <tbody>${R.ultimos.map((u) => `<tr><td class="fraco">${esc(u.quando.slice(8, 10) + "/" + u.quando.slice(5, 7) + " " + u.quando.slice(11))}</td>
-      <td><span class="tag ${u.filial.toLowerCase()}">${u.filial}</span></td><td class="mono">${u.numero}</td>
-      <td><span class="tag ${TAG[u.resultado] || (u.resultado.startsWith("ERRO") ? "hoje" : "")}">${esc(u.resultado)}</span></td>
-      <td class="fraco">${esc(u.detalhe)}</td></tr>`).join("")}</tbody>`;
+  // --- Indústrias e produtos ---
+  const porIndustria = {};
+  for (const i of itensFat) {
+    const k = L.fornecedor?.[i.fornecedor] || "Sem indústria";
+    const g = (porIndustria[k] ??= { k, valor: 0, fat: 0, dev: 0 });
+    g.valor += i.valor || 0; g.fat += i.qt_faturada || 0; g.dev += i.qt_devolvida || 0;
+  }
+  const industrias = Object.values(porIndustria).sort((a, b) => b.valor - a.valor).slice(0, 10);
+  $("#l-industria").innerHTML = barras(industrias, (x) => nomeIndustria(x.k), (x) => x.valor, (v) => brl(v, true), (x) => `${pct(x.dev, x.fat)} devolvido`);
+  $("#l-secao").innerHTML = barras(agrupar(itensFat, (i) => L.secao?.[i.secao], (i) => i.valor || 0).slice(0, 10), (x) => frase1(x.k), (x) => x.v, (v) => brl(v, true));
+  $("#l-produtos").innerHTML = barras(agrupar(itensFat, (i) => L.produto?.[i.produto], (i) => i.valor || 0).slice(0, 10), (x) => frase1(x.k), (x) => x.v, (v) => brl(v, true));
+
+  // --- Clientes ---
+  const inicio = PED.reduce((m, p) => (p.data && p.data < m ? p.data : m), "9999");
+  $("#ref-novos").textContent = `novo é quem fez a primeira compra do histórico, que começa em ${dataBR(inicio)}`;
+  const novosMes = [], recorrMes = [];
+  MESES.forEach((_, i) => {
+    const m = String(i + 1).padStart(2, "0");
+    const cl = new Set(doAno.filter((p) => p.entregue && p.mes === m).map((p) => p.codcli));
+    const n = [...cl].filter((c) => primeiraCompra[c]?.slice(0, 7) === `${ano}-${m}`).length;
+    novosMes.push(n); recorrMes.push(cl.size - n);
+  });
+  grafico("g-clientes", {
+    type: "bar",
+    data: { labels: MESES, datasets: [
+      { label: "Novos", data: novosMes, backgroundColor: cor.amarelo, borderRadius: 4, stack: "s" },
+      { label: "Recorrentes", data: recorrMes, backgroundColor: cor.preto, borderRadius: 4, stack: "s" },
+    ] },
+    options: opcoesBarras(),
+  });
+  const top = {};
+  for (const p of faturados) {
+    const g = (top[p.codcli] ??= { nome: p.cliente, cidade: p.cidade, pedidos: 0, valor: 0 });
+    g.pedidos++; g.valor += p.liquido;
+  }
+  $("#l-top-clientes").innerHTML = barras(Object.values(top).sort((a, b) => b.valor - a.valor).slice(0, 10),
+    (x) => x.nome, (x) => x.valor, (v) => brl(v, true), (x) => `${x.pedidos} ${x.pedidos === 1 ? "pedido" : "pedidos"}`);
+
+  // --- Quando os pedidos chegam ---
+  const semana = [0, 0, 0, 0, 0, 0, 0];
+  for (const p of sel) semana[(new Date(p.data + "T12:00:00").getDay() + 6) % 7]++;
+  grafico("g-semana", {
+    type: "bar",
+    data: { labels: ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"], datasets: [{ label: "Pedidos", data: semana, backgroundColor: cor.preto, borderRadius: 6 }] },
+    options: opcoesBarras({ plugins: { legend: { display: false } } }),
+  });
+  const horas = Array(24).fill(0);
+  for (const p of sel) if (p.hora != null) horas[p.hora]++;
+  grafico("g-hora", {
+    type: "bar",
+    data: { labels: horas.map((_, h) => `${h}h`), datasets: [{ label: "Pedidos", data: horas, backgroundColor: cor.preto, borderRadius: 4 }] },
+    options: opcoesBarras({ plugins: { legend: { display: false } } }),
+  });
 }
-const pend = ["Dar baixa no BEES", "Aguardando data de entrega", "Aguardando pagamento", "Falha na entrega (devolução)", "Baixado, mas teve devolução", "Sem pedido no Winthor", "Cancelar no BEES", "Aguardando faturamento"]
-  .map((a) => ({ a, l: listaEntregar.filter((p) => p.acao === a) })).filter((x) => x.l.length);
-$("#l-pendencias").innerHTML = barras(pend, (x) => x.a, (x) => x.l.length, int, (x) => brl(x.l.reduce((s, p) => s + (p.total || 0), 0), true));
 
-// --- Não emitidos ---
-const frase1 = (t) => String(t || "").toLowerCase().replace(/^./, (c) => c.toUpperCase()).replace("winthor", "Winthor");
-const porSit = {};
-for (const p of nePend) (porSit[p.situacao] ??= []).push(p);
-$("#l-nao-emitidos-sit").innerHTML = Object.entries(porSit).sort((a, b) => b[1].length - a[1].length).map(([sit, l]) =>
-  kpi(frase1(sit), int(l.length), brl(soma(l)))).join("")
-  + (resolvidos.size ? `<p class="fraco" style="font-size:13px;align-self:end">Sem contar ${int(ne.pedidos.length - nePend.length)} pedidos que o robô já resolveu no BEES.</p>` : "");
-$("#t-nao-emitidos").innerHTML = `<thead><tr><th>Pedido</th><th>Filial</th><th>Cliente</th><th>CD</th><th>Entrega</th>
-  <th class="n">Total</th><th>Situação</th><th>Motivo ou ação</th></tr></thead><tbody>${nePend.map((p) => `<tr>
-  <td class="mono">${p.numero}</td><td><span class="tag ${p.filial.toLowerCase()}">${p.filial}</span></td>
-  <td>${esc(p.cliente)}</td><td class="fraco">${esc(p.cd)}</td><td>${dataBR(p.data_entrega)}</td>
-  <td class="n">${brl(p.total)}</td><td>${esc(frase1(p.situacao))}</td><td class="fraco">${esc(p.motivo)}</td></tr>`).join("")}</tbody>`;
-
-// --- CNPJ ---
-const C = D.cnpj || {};
-$("#l-porte").innerHTML = barras(C.por_porte, (x) => x.nome, (x) => x.qtd);
-$("#l-cnpj-uf").innerHTML = barras(C.por_uf, (x) => x.nome, (x) => x.qtd);
-$("#l-ativ").innerHTML = barras(C.atividades, (x) => x.nome, (x) => x.qtd);
-
-// --- Tabelas do banco ---
-$("#t-tabelas").innerHTML = `<thead><tr><th>Tabela</th><th class="n">Linhas</th></tr></thead><tbody>${(D.tabelas || [])
-  .map((t) => `<tr><td class="mono">${t.tabela}</td><td class="n">${int(t.linhas)}</td></tr>`).join("")}</tbody>`;
+["#f-ano", "#f-mes", "#f-uf"].forEach((id) => $(id).addEventListener("change", render));
+render();
 </script>
 </body>
 </html>
