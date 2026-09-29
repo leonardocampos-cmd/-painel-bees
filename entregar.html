@@ -23,7 +23,7 @@
     <select id="f-filial"><option value="">Todas as filiais</option></select>
     <select id="f-uf"><option value="">Todos os estados</option></select>
     <select id="f-cd"><option value="">Todos os CDs</option></select>
-    <select id="f-div"><option value="">Qualquer valor</option><option value="1">Valor BEES ≠ Winthor</option></select>
+    <select id="f-div"><option value="">Qualquer valor</option><option value="1">Itens BEES ≠ NF</option></select>
     <button class="botao" id="b-csv">Baixar CSV</button>
   </div>
 
@@ -40,7 +40,9 @@ const pedidos = AE.lista || [];
 
 // Ordem e cor de cada próximo passo sugerido
 const ACOES = {
-  "Dar baixa no BEES":       { cor: "ok",     dica: "Faturado e já saiu no caminhão — confirmar entrega no BEES" },
+  "Dar baixa no BEES":       { cor: "ok",     dica: "Faturado e já saiu no caminhão — o robô confirma a entrega 2 dias após a saída" },
+  "Aguarda corte":           { cor: "amanha", dica: "BEES tem mais itens do que a NF e o corte é possível — fazer o corte antes da baixa" },
+  "Baixado pelo robô":       { cor: "azul",   dica: "Entrega confirmada no BEES pelo robô — sai da lista na próxima coleta" },
   "Em rota":                 { cor: "azul",   dica: "Faturado, saída hoje ou ainda sem saída" },
   "Aguardando faturamento":  { cor: "amanha", dica: "Pedido no Winthor ainda não faturado" },
   "Bloqueado no Winthor":    { cor: "hoje",   dica: "Pedido bloqueado no Winthor" },
@@ -77,8 +79,9 @@ function detalhe(p) {
   const w = p.winthor;
   const blocoWinthor = !w ? `<dd class="fraco">Não consultado</dd>` : `
     <dt>Situação</dt><dd>${esc(w.situacao)}${w.posicao ? ` <span class="fraco">(posição ${esc(w.posicao)})</span>` : ""}</dd>
-    ${w.numped ? `<dt>Pedido Winthor · Cliente</dt><dd class="mono">${w.numped} · ${w.codcli ?? "—"} <span class="fraco">(${esc(w.schema)} / filial ${esc(w.filial)})</span></dd>
-    <dt>Valor Winthor</dt><dd>${brl(w.valor)}${p.divergencia ? ` <span class="tag hoje">BEES ${brl(p.total)}</span>` : ""}</dd>` : ""}`;
+    ${w.numped ? `<dt>Pedido Winthor · Cliente</dt><dd class="mono">${w.numped} · ${w.codcli ?? "—"} <span class="fraco">(${esc(w.schema)} / filial ${esc(w.filial)})</span></dd>` : ""}
+    ${p.robo ? `<dt>Robô de baixa</dt><dd>${esc(p.robo.resultado)} <span class="fraco">em ${esc(p.robo.quando)}</span>
+      ${p.robo.detalhe ? `<div class="fraco" style="font-size:12px">${esc(p.robo.detalhe)}</div>` : ""}</dd>` : ""}`;
   const blocoNota = !w?.numped ? `<dd class="fraco">—</dd>` : `
     <dt>Nota fiscal</dt><dd class="mono">${w.nota ?? "—"}${w.faturado_em ? ` <span class="fraco">em ${dataBR(w.faturado_em)}</span>` : ""}</dd>
     <dt>Carregamento</dt><dd class="mono">${w.carga ?? "—"}${w.destino ? ` <span class="fraco">${esc(w.destino)}</span>` : ""}</dd>
@@ -92,9 +95,14 @@ function detalhe(p) {
       <div>${blocoWinthor}</div>
       <div>${blocoNota}</div>
     </dl>
-    <table class="itens"><thead><tr><th>SKU</th><th>Produto</th><th class="n">Qtd</th><th class="n">Valor</th></tr></thead>
-      <tbody>${p.itens.map((i) => `<tr><td class="mono">${esc(i.sku)}</td><td>${esc(i.produto)}</td>
-      <td class="n">${int(i.qtd)}</td><td class="n">${brl(i.valor)}</td></tr>`).join("")}</tbody></table>
+    <table class="itens"><thead><tr><th>SKU</th><th>Produto</th><th class="n">Qtd BEES</th>
+      <th class="n">Qtd NF</th><th class="n">Valor</th></tr></thead>
+      <tbody>${p.itens.map((i) => {
+        const falta = i.qtd_nf != null && i.qtd > i.qtd_nf;
+        return `<tr><td class="mono">${esc(i.sku)}</td><td>${esc(i.produto)}</td><td class="n">${int(i.qtd)}</td>
+          <td class="n">${i.qtd_nf == null ? '<span class="fraco">—</span>' : falta ? `<span class="tag hoje">${int(i.qtd_nf)}</span>` : int(i.qtd_nf)}</td>
+          <td class="n">${brl(i.valor)}</td></tr>`;
+      }).join("")}</tbody></table>
   </td></tr>`;
 }
 
@@ -127,7 +135,7 @@ function render() {
     kpi("Pedidos", int(lista.length), acaoSel ? `filtrando: ${esc(acaoSel)}` : "", true),
     kpi("Valor total", brl(total)),
     kpi("Entrega BEES vencida", int(lista.filter((p) => (diasAte(p.data_entrega) ?? 1) < 0).length)),
-    kpi("Valor BEES ≠ Winthor", int(lista.filter((p) => p.divergencia).length), "diferença acima de R$ 1,00"),
+    kpi("Itens BEES ≠ NF", int(lista.filter((p) => p.divergencia).length), "BEES com mais itens do que a nota fiscal"),
   ].join("");
 
   $("#t-pedidos").innerHTML = lista.length ? `<thead><tr>${colunas.map(([c, n, num]) =>
@@ -141,7 +149,7 @@ function render() {
         <td class="mono">${w.numped ?? '<span class="fraco">—</span>'}</td>
         <td class="mono">${w.nota ?? '<span class="fraco">—</span>'}</td>
         <td>${w.saida ? dataBR(w.saida) : '<span class="fraco">—</span>'}</td>
-        <td>${tagAcao(p.acao)}${p.divergencia ? ' <span class="tag hoje" title="Valor diferente entre BEES e Winthor">R$ ≠</span>' : ""}</td>
+        <td>${tagAcao(p.acao)}${p.divergencia ? ` <span class="tag hoje" title="Corte: ${esc(p.cortes.map((c) => `${c.sku} ${c.bees}→${c.nf}`).join(", "))}">itens ≠ NF</span>` : ""}</td>
         <td class="n">${brl(p.total)}</td></tr>${aberto === chave ? detalhe(p) : ""}`;
     }).join("")}</tbody>` : `<tbody><tr><td class="vazio">Nenhum pedido${pedidos.length ? " com esses filtros" : ""}.</td></tr></tbody>`;
 }
@@ -167,12 +175,13 @@ document.querySelectorAll(".filtros input, .filtros select").forEach((el) => el.
 $("#b-csv").addEventListener("click", () => {
   const cab = ["Pedido BEES", "Filial", "UF", "CD", "Cliente", "Documento", "Cidade", "Entrega BEES", "Pagamento", "Telefone",
     "Total BEES", "Próximo passo", "Situação Winthor", "Pedido Winthor", "Cód. cliente", "Valor Winthor", "Faturado em", "NF",
-    "Carregamento", "Saída"];
+    "Carregamento", "Saída", "Itens ≠ NF (corte)", "Robô de baixa"];
   const linhas = filtrar().map((p) => {
     const w = p.winthor || {};
     return [p.numero, p.filial, p.uf, p.cd, p.cliente, p.documento, p.cidade, dataBR(p.data_entrega), p.pagamento, p.telefone,
       String(p.total ?? "").replace(".", ","), p.acao, w.situacao, w.numped, w.codcli, String(w.valor ?? "").replace(".", ","),
-      w.faturado_em ? dataBR(w.faturado_em) : "", w.nota, w.carga, w.saida ? dataBR(w.saida) : ""];
+      w.faturado_em ? dataBR(w.faturado_em) : "", w.nota, w.carga, w.saida ? dataBR(w.saida) : "",
+      p.cortes.map((c) => `${c.sku}: ${c.bees}→${c.nf}`).join(", "), p.robo ? `${p.robo.resultado} ${p.robo.detalhe}`.trim() : ""];
   });
   const csv = [cab, ...linhas].map((l) => l.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(";")).join("\r\n");
   Object.assign(document.createElement("a"), {
