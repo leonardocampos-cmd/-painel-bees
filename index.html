@@ -248,7 +248,7 @@ function render() {
     kpi("Devolvidos", int(devolvidos.length), `${int(devTotais.length)} devolução total, ${brl(devolvidos.reduce((s, p) => s + p.devolvido, 0), true)}`),
     kpi("Não entregues", int(cancelados.length), `${pct(cancelados.length, sel.length)} dos pedidos; cancelados ou rejeitados`),
     kpi("Cancelados automaticamente", int(peloRobo.length), "CPF ou CNPJ irregular; fora da taxa de sucesso"),
-    kpi("Unidades cortadas no Winthor", int(unCortadas), `${pct(unCortadas, unPedidas)} das ${int(unPedidas)} pedidas; ${int(unDevolvidas)} devolvidas`),
+    kpi("Produtos cortados no Winthor", int(unCortadas), `${pct(unCortadas, unPedidas)} dos ${int(unPedidas)} produtos pedidos; ${int(unDevolvidas)} devolvidos`),
     kpi("Emissão até entrega", med(mediana(prazoEntrega)), `mediana; do pedido à entrega: ${med(mediana(prazoTotal))}`),
   ].join("");
 
