@@ -128,11 +128,12 @@ for (const p of PED) {
   p.ano = p.data?.slice(0, 4);
   p.mes = p.data?.slice(5, 7);
   // F = faturado no Winthor; E = entregue no BEES sem nota no Winthor; C = cancelado no Winthor;
-  // R = rejeitado ou com falha no BEES; A = em aberto
+  // R = rejeitado ou com falha no BEES; X = cancelado pelo nosso robô (CPF/CNPJ irregular); A = em aberto
   p.devTotal = p.posicao === "F" && p.devolvido > 0 && p.devolvido >= p.valor - 0.05;
   p.faturado = p.posicao === "F" || p.posicao === "E";
   p.entregue = (p.posicao === "F" && !p.devTotal) || p.posicao === "E";
   p.perdido = p.posicao === "C" || p.posicao === "R";
+  p.robo = p.posicao === "X";
   p.liquido = p.posicao === "F" ? p.valor - p.devolvido : p.posicao === "E" ? p.valor : 0;
   p.cli = p.codcli ?? "n:" + p.cliente;
   p.itens = [];
@@ -195,6 +196,7 @@ function render() {
   const entregues = sel.filter((p) => p.entregue);
   const faturados = sel.filter((p) => p.faturado);
   const cancelados = sel.filter((p) => p.perdido);
+  const peloRobo = sel.filter((p) => p.robo);
   const devolvidos = faturados.filter((p) => p.devolvido > 0);
   const devTotais = faturados.filter((p) => p.devTotal);
   const receita = faturados.reduce((s, p) => s + p.liquido, 0);
@@ -238,9 +240,10 @@ function render() {
   const prazoTotal = entregues.map((p) => dias(p.data, p.pago_em)).filter((d) => d != null && d >= 0);
   const med = (v) => (v == null ? "—" : `${v.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} ${v === 1 ? "dia" : "dias"}`);
   $("#kpis-entrega").innerHTML = [
-    kpi("Taxa de sucesso", pct(entregues.length, comDesfecho), "entregues sobre pedidos com desfecho", true),
+    kpi("Taxa de sucesso", pct(entregues.length, comDesfecho), "entregues sobre pedidos com desfecho, sem os cancelados pelo robô", true),
     kpi("Devolvidos", int(devolvidos.length), `${int(devTotais.length)} devolução total, ${brl(devolvidos.reduce((s, p) => s + p.devolvido, 0), true)}`),
     kpi("Não entregues", int(cancelados.length), `${pct(cancelados.length, sel.length)} dos pedidos; cancelados ou rejeitados`),
+    kpi("Cancelados pelo robô", int(peloRobo.length), "CPF ou CNPJ irregular; fora da taxa de sucesso"),
     kpi("Unidades cortadas no Winthor", int(unCortadas), `${pct(unCortadas, unPedidas)} das ${int(unPedidas)} pedidas; ${int(unDevolvidas)} devolvidas`),
     kpi("Emissão até entrega", med(mediana(prazoEntrega)), `mediana; do pedido à entrega: ${med(mediana(prazoTotal))}`),
   ].join("");
@@ -251,6 +254,7 @@ function render() {
       { label: "Entregues", data: porMes((l) => l.filter((p) => p.entregue).length), backgroundColor: cor.preto, borderRadius: 4, stack: "s" },
       { label: "Devolução total", data: porMes((l) => l.filter((p) => p.devTotal).length), backgroundColor: cor.amarelo, borderRadius: 4, stack: "s" },
       { label: "Não entregues", data: porMes((l) => l.filter((p) => p.perdido).length), backgroundColor: cor.alerta, borderRadius: 4, stack: "s" },
+      { label: "Cancelados pelo robô", data: porMes((l) => l.filter((p) => p.robo).length), backgroundColor: cor.apagado, borderRadius: 4, stack: "s" },
     ] },
     options: opcoesBarras(),
   });
