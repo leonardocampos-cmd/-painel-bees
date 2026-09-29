@@ -39,7 +39,7 @@ montarTopo("entregar");
 const AE = D.a_entregar || {};
 // O que a automação resolve sozinha (baixa e falha na entrega, feitas ou a fazer) não aparece:
 // a página mostra só o que depende de alguém
-const AUTOMATICO = ["Baixado pelo robô", "Falha marcada pelo robô", "Dar baixa no BEES", "Falha na entrega (devolução)"];
+const AUTOMATICO = ["Baixa automática", "Falha automática", "Dar baixa no BEES", "Falha na entrega (devolução)"];
 const pedidos = (AE.lista || []).filter((p) => !AUTOMATICO.includes(p.acao));
 
 // Ordem e cor de cada próximo passo sugerido

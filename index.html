@@ -121,7 +121,7 @@ const etapas = [
   { nome: "Aguardando nota", lista: porAcao("Aguardando faturamento", "Não verificado"), link: "entregar.html" },
   { nome: "Em entrega", lista: porAcao("Em rota", "Aguardando data de entrega"), link: "entregar.html" },
   { nome: "Aguardando pagamento", lista: porAcao("Aguardando pagamento"), link: "entregar.html" },
-  // Baixas e falhas na entrega são feitas pelo robô e não aparecem aqui
+  // Baixas e falhas na entrega são automáticas e não aparecem aqui
 ];
 $("#fluxo").innerHTML = etapas.map((e) => `<a href="${e.link}">
   <div class="etapa-nome">${e.nome}</div><div class="etapa-n">${int(e.lista.length)}</div>
@@ -138,7 +138,7 @@ for (const p of PED) {
   p.ano = p.data?.slice(0, 4);
   p.mes = p.data?.slice(5, 7);
   // F = faturado no Winthor; E = entregue no BEES sem nota no Winthor; C = cancelado no Winthor;
-  // R = rejeitado ou com falha no BEES; X = cancelado pelo nosso robô (CPF/CNPJ irregular); A = em aberto
+  // R = rejeitado ou com falha no BEES; X = cancelado automaticamente (CPF/CNPJ irregular); A = em aberto
   p.devTotal = p.posicao === "F" && p.devolvido > 0 && p.devolvido >= p.valor - 0.05;
   p.faturado = p.posicao === "F" || p.posicao === "E";
   p.entregue = (p.posicao === "F" && !p.devTotal) || p.posicao === "E";
@@ -250,10 +250,10 @@ function render() {
   const prazoTotal = entregues.map((p) => dias(p.data, p.pago_em)).filter((d) => d != null && d >= 0);
   const med = (v) => (v == null ? "—" : `${v.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} ${v === 1 ? "dia" : "dias"}`);
   $("#kpis-entrega").innerHTML = [
-    kpi("Taxa de sucesso", pct(entregues.length, comDesfecho), "entregues sobre pedidos com desfecho, sem os cancelados pelo robô", true),
+    kpi("Taxa de sucesso", pct(entregues.length, comDesfecho), "entregues sobre pedidos com desfecho, sem os cancelados automaticamente", true),
     kpi("Devolvidos", int(devolvidos.length), `${int(devTotais.length)} devolução total, ${brl(devolvidos.reduce((s, p) => s + p.devolvido, 0), true)}`),
     kpi("Não entregues", int(cancelados.length), `${pct(cancelados.length, sel.length)} dos pedidos; cancelados ou rejeitados`),
-    kpi("Cancelados pelo robô", int(peloRobo.length), "CPF ou CNPJ irregular; fora da taxa de sucesso"),
+    kpi("Cancelados automaticamente", int(peloRobo.length), "CPF ou CNPJ irregular; fora da taxa de sucesso"),
     kpi("Unidades cortadas no Winthor", int(unCortadas), `${pct(unCortadas, unPedidas)} das ${int(unPedidas)} pedidas; ${int(unDevolvidas)} devolvidas`),
     kpi("Emissão até entrega", med(mediana(prazoEntrega)), `mediana; do pedido à entrega: ${med(mediana(prazoTotal))}`),
   ].join("");
@@ -311,7 +311,7 @@ function render() {
     },
   });
   const cpf = sel.filter((p) => tipoDoc(p) === "CPF");
-  const situacao = (p) => p.entregue ? "Entregues" : p.robo ? "Cancelados pelo robô" : p.perdido || p.devTotal ? "Não entregues ou devolvidos" : "Em aberto";
+  const situacao = (p) => p.entregue ? "Entregues" : p.robo ? "Cancelados automaticamente" : p.perdido || p.devTotal ? "Não entregues ou devolvidos" : "Em aberto";
   $("#l-doc-cpf").innerHTML = cpf.length
     ? barras(agrupar(cpf, situacao, () => 1), (x) => x.k, (x) => x.v, int, (x) => pct(x.v, cpf.length))
     : `<p class="fraco">Nenhum pedido de CPF no período.</p>`;
