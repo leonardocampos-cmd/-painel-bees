@@ -45,11 +45,11 @@
   <div class="grade g-kpi" id="kpis-entrega" style="margin-top:0"></div>
   <div class="grade g-2" style="margin-top:16px">
     <div class="card">
-      <h2>Resultado dos pedidos por mês <small>entregues, devolvidos e cancelados, no ano escolhido</small></h2>
+      <h2>Resultado dos pedidos por mês <small>entregues, devolvidos e não entregues, no ano escolhido</small></h2>
       <div class="grafico"><canvas id="g-resultado"></canvas></div>
     </div>
     <div class="card">
-      <h2>Por que não foram entregues <small>devoluções e cancelamentos, pelos motivos do BEES</small></h2>
+      <h2>Por que não foram entregues <small>devoluções, cancelamentos e rejeições, pelos motivos do BEES</small></h2>
       <div id="l-motivos"></div>
     </div>
   </div>
@@ -84,7 +84,7 @@
       <div class="grafico"><canvas id="g-semana"></canvas></div>
     </div>
     <div class="card">
-      <h2>Por horário <small>hora do pedido no BEES, quando disponível</small></h2>
+      <h2>Por horário <small>hora em que o pedido foi feito no BEES</small></h2>
       <div class="grafico"><canvas id="g-hora"></canvas></div>
     </div>
   </div>
@@ -127,14 +127,19 @@ for (const p of PED) {
   p.uf_nome = L.uf?.[p.uf] ?? "";
   p.ano = p.data?.slice(0, 4);
   p.mes = p.data?.slice(5, 7);
+  // F = faturado no Winthor; E = entregue no BEES sem nota no Winthor; C = cancelado no Winthor;
+  // R = rejeitado ou com falha no BEES; A = em aberto
   p.devTotal = p.posicao === "F" && p.devolvido > 0 && p.devolvido >= p.valor - 0.05;
-  p.entregue = p.posicao === "F" && !p.devTotal;
-  p.liquido = p.posicao === "F" ? p.valor - p.devolvido : 0;
+  p.faturado = p.posicao === "F" || p.posicao === "E";
+  p.entregue = (p.posicao === "F" && !p.devTotal) || p.posicao === "E";
+  p.perdido = p.posicao === "C" || p.posicao === "R";
+  p.liquido = p.posicao === "F" ? p.valor - p.devolvido : p.posicao === "E" ? p.valor : 0;
+  p.cli = p.codcli ?? "n:" + p.cliente;
   p.itens = [];
 }
 for (const it of ITENS) PED[it.pedido]?.itens.push(it);
 const primeiraCompra = {};
-for (const p of PED) if (p.entregue && p.codcli != null && (!primeiraCompra[p.codcli] || p.data < primeiraCompra[p.codcli])) primeiraCompra[p.codcli] = p.data;
+for (const p of PED) if (p.entregue && p.data && (!primeiraCompra[p.cli] || p.data < primeiraCompra[p.cli])) primeiraCompra[p.cli] = p.data;
 
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 const anos = [...new Set(PED.map((p) => p.ano).filter(Boolean))].sort();
@@ -188,8 +193,8 @@ function render() {
   const doAno = PED.filter((p) => p.ano === ano && (!uf || p.uf_nome === uf));
   const sel = doAno.filter((p) => !mes || p.mes === mes);
   const entregues = sel.filter((p) => p.entregue);
-  const faturados = sel.filter((p) => p.posicao === "F");
-  const cancelados = sel.filter((p) => p.posicao === "C");
+  const faturados = sel.filter((p) => p.faturado);
+  const cancelados = sel.filter((p) => p.perdido);
   const devolvidos = faturados.filter((p) => p.devolvido > 0);
   const devTotais = faturados.filter((p) => p.devTotal);
   const receita = faturados.reduce((s, p) => s + p.liquido, 0);
@@ -198,10 +203,10 @@ function render() {
     H.atualizado_em ? new Date(H.atualizado_em).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "—"}.`;
 
   // --- Vendas ---
-  const clientes = new Set(entregues.map((p) => p.codcli));
+  const clientes = new Set(entregues.map((p) => p.cli));
   const novos = [...clientes].filter((c) => { const d = primeiraCompra[c]; return d && d.slice(0, 4) === ano && (!mes || d.slice(5, 7) === mes); });
   const comprasPorCliente = {};
-  for (const p of entregues) comprasPorCliente[p.codcli] = (comprasPorCliente[p.codcli] || 0) + 1;
+  for (const p of entregues) comprasPorCliente[p.cli] = (comprasPorCliente[p.cli] || 0) + 1;
   const recorrentes = Object.values(comprasPorCliente).filter((n) => n > 1).length;
   $("#kpis-vendas").innerHTML = [
     kpi("Receita líquida", brl(receita, receita >= 1e5), "faturado menos devolvido", true),
@@ -233,9 +238,9 @@ function render() {
   const prazoTotal = entregues.map((p) => dias(p.data, p.pago_em)).filter((d) => d != null && d >= 0);
   const med = (v) => (v == null ? "—" : `${v.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} ${v === 1 ? "dia" : "dias"}`);
   $("#kpis-entrega").innerHTML = [
-    kpi("Taxa de sucesso", pct(entregues.length, comDesfecho), "entregues sobre faturados e cancelados", true),
+    kpi("Taxa de sucesso", pct(entregues.length, comDesfecho), "entregues sobre pedidos com desfecho", true),
     kpi("Devolvidos", int(devolvidos.length), `${int(devTotais.length)} devolução total, ${brl(devolvidos.reduce((s, p) => s + p.devolvido, 0), true)}`),
-    kpi("Cancelados", int(cancelados.length), pct(cancelados.length, sel.length) + " dos pedidos"),
+    kpi("Não entregues", int(cancelados.length), `${pct(cancelados.length, sel.length)} dos pedidos; cancelados ou rejeitados`),
     kpi("Unidades cortadas no Winthor", int(unCortadas), `${pct(unCortadas, unPedidas)} das ${int(unPedidas)} pedidas; ${int(unDevolvidas)} devolvidas`),
     kpi("Emissão até entrega", med(mediana(prazoEntrega)), `mediana; do pedido à entrega: ${med(mediana(prazoTotal))}`),
   ].join("");
@@ -245,11 +250,11 @@ function render() {
     data: { labels: MESES, datasets: [
       { label: "Entregues", data: porMes((l) => l.filter((p) => p.entregue).length), backgroundColor: cor.preto, borderRadius: 4, stack: "s" },
       { label: "Devolução total", data: porMes((l) => l.filter((p) => p.devTotal).length), backgroundColor: cor.amarelo, borderRadius: 4, stack: "s" },
-      { label: "Cancelados", data: porMes((l) => l.filter((p) => p.posicao === "C").length), backgroundColor: cor.alerta, borderRadius: 4, stack: "s" },
+      { label: "Não entregues", data: porMes((l) => l.filter((p) => p.perdido).length), backgroundColor: cor.alerta, borderRadius: 4, stack: "s" },
     ] },
     options: opcoesBarras(),
   });
-  const perdas = sel.filter((p) => p.motivo != null && (p.posicao === "C" || p.devolvido > 0));
+  const perdas = sel.filter((p) => p.motivo != null && (p.perdido || p.devolvido > 0));
   $("#l-motivos").innerHTML = barras(agrupar(perdas, (p) => L.motivo?.[p.motivo], () => 1), (x) => x.k, (x) => x.v, int,
     (x) => pct(x.v, perdas.length));
 
@@ -281,7 +286,7 @@ function render() {
   const novosMes = [], recorrMes = [];
   MESES.forEach((_, i) => {
     const m = String(i + 1).padStart(2, "0");
-    const cl = new Set(doAno.filter((p) => p.entregue && p.mes === m).map((p) => p.codcli));
+    const cl = new Set(doAno.filter((p) => p.entregue && p.mes === m).map((p) => p.cli));
     const n = [...cl].filter((c) => primeiraCompra[c]?.slice(0, 7) === `${ano}-${m}`).length;
     novosMes.push(n); recorrMes.push(cl.size - n);
   });
@@ -295,7 +300,7 @@ function render() {
   });
   const top = {};
   for (const p of faturados) {
-    const g = (top[p.codcli] ??= { nome: p.cliente, cidade: p.cidade, pedidos: 0, valor: 0 });
+    const g = (top[p.cli] ??= { nome: p.cliente, cidade: p.cidade, pedidos: 0, valor: 0 });
     g.pedidos++; g.valor += p.liquido;
   }
   $("#l-top-clientes").innerHTML = barras(Object.values(top).sort((a, b) => b.valor - a.valor).slice(0, 10),
