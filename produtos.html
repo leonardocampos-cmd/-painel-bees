@@ -12,7 +12,7 @@
 <script>document.write('<script src="dados.js?v=' + Date.now() + '"><\/script>')</script>
 <script>document.write('<script src="comum.js?v=' + Date.now() + '"><\/script>')</script>
 <style>
-  .grade-produtos { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-top: 20px; }
+  .grade-produtos { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-top: 20px; }
   .produto { background: var(--superficie); border: 1px solid var(--linha); border-radius: var(--raio); overflow: hidden; display: flex; flex-direction: column; }
   .produto .foto { aspect-ratio: 4 / 3; background: #fff; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid var(--linha); }
   .produto .foto img { max-width: 80%; max-height: 88%; object-fit: contain; }
@@ -50,6 +50,8 @@
       <option value="">Todas as situações</option>
       <option value="promo">Em promoção</option>
       <option value="sem-estoque">Sem estoque no BEES</option>
+      <option value="habilitado">Habilitado no BEES</option>
+      <option value="desabilitado">Desabilitado no BEES</option>
       <option value="sem-foto">Sem foto</option>
     </select>
   </div>
@@ -85,6 +87,8 @@ function filtrar() {
     (!b || (p.nome + " " + p.sku).toUpperCase().includes(b)) &&
     (sit !== "promo" || p.cdsVis.some((c) => c.promo)) &&
     (sit !== "sem-estoque" || semEstoque(p, p.cdsVis)) &&
+    (sit !== "habilitado" || p.cdsVis.some((c) => c.status === "Habilitado")) &&
+    (sit !== "desabilitado" || p.cdsVis.some((c) => c.status === "Desabilitado")) &&
     (sit !== "sem-foto" || !p.foto));
 }
 
@@ -96,7 +100,8 @@ function cartao(p) {
       ? `<span class="riscado">${brl(c.preco)}</span><span class="promo">${brl(c.promo)}</span>`
       : c.promo ? `<span class="promo">${brl(c.promo)}</span>` : brl(c.preco);
     return `<tr><td>${esc(c.uf)}</td><td class="n">${preco}</td>
-      <td class="n">${s == null ? '<span class="fraco">—</span>' : s <= 0 ? '<span class="indisponivel">Sem estoque</span>' : int(s)}</td></tr>`;
+      <td class="n">${s == null ? '<span class="fraco">—</span>' : s <= 0 ? '<span class="indisponivel">Sem estoque</span>' : int(s)}</td>
+      <td>${c.status ? `<span class="tag ${c.status === "Habilitado" ? "ok" : "hoje"}">${esc(c.status)}</span>` : '<span class="fraco">—</span>'}</td></tr>`;
   }).join("");
   return `<article class="produto">
     <div class="foto">${p.foto ? `<img src="${esc(p.foto)}" alt="${esc(p.nome)}" loading="lazy">` : "<span>Sem foto</span>"}</div>
@@ -104,7 +109,7 @@ function cartao(p) {
       <h3>${esc(p.nome)}</h3>
       <div class="sku"><span>SKU ${esc(p.sku)}</span><span class="tag ${p.filial.toLowerCase()}">${p.filial}</span>
         ${temPromo ? '<span class="selo-promo">Promoção</span>' : ""}</div>
-      <table><thead><tr><th>Estado</th><th class="n">Preço</th><th class="n">Estoque</th></tr></thead><tbody>${linhas}</tbody></table>
+      <table><thead><tr><th>UF</th><th class="n">Preço</th><th class="n">Estoque</th><th>Status</th></tr></thead><tbody>${linhas}</tbody></table>
     </div></article>`;
 }
 
@@ -114,6 +119,7 @@ function render() {
     kpi("Produtos", int(lista.length), "no filtro escolhido", true),
     kpi("Em promoção", int(lista.filter((p) => p.cdsVis.some((c) => c.promo)).length), "em pelo menos um estado"),
     kpi("Sem estoque no BEES", int(lista.filter((p) => semEstoque(p, p.cdsVis)).length), "indisponíveis para o cliente"),
+    kpi("Desabilitados no BEES", int(lista.filter((p) => p.cdsVis.some((c) => c.status === "Desabilitado")).length), "em pelo menos um estado"),
     kpi("Sem foto", int(lista.filter((p) => !p.foto).length), "sem imagem cadastrada"),
   ].join("");
   $("#grade").innerHTML = lista.length ? lista.slice(0, limite).map(cartao).join("")

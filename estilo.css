@@ -283,5 +283,5 @@ tbody tr.aberto td:first-child { box-shadow: inset 4px 0 0 var(--faixa); }
 .filtros.f-hist input { grid-column: 1 / -1; }
 @media (max-width: 1100px) { .filtros.f-hist { grid-template-columns: 1fr 1fr 1fr; } }
 @media (max-width: 640px) { .filtros.f-hist { grid-template-columns: 1fr 1fr; } }
-.mais { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 16px; color: var(--apagado); font-size: 14px; }
-.mais .botao { padding: 8px 18px; }
+.mostrar-mais { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 16px; color: var(--apagado); font-size: 14px; }
+.mostrar-mais .botao { padding: 8px 18px; }
