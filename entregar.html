@@ -40,9 +40,13 @@ const pedidos = AE.lista || [];
 
 // Ordem e cor de cada próximo passo sugerido
 const ACOES = {
-  "Dar baixa no BEES":       { cor: "ok",     dica: "Faturado e já saiu no caminhão — o robô confirma a entrega 2 dias após a saída" },
+  "Dar baixa no BEES":       { cor: "ok",     dica: "Faturado e pago (DTPAG) — o robô confirma a entrega com a data do pagamento" },
+  "Aguardando pagamento":    { cor: "amanha", dica: "Faturado, mas o título (PCPREST) ainda não tem DTPAG — a baixa espera o pagamento" },
+  "Falha na entrega (devolução)": { cor: "hoje", dica: "Devolução total no Winthor — o robô marca 'Falha na entrega' com o motivo da devolução" },
   "Aguarda corte":           { cor: "amanha", dica: "BEES tem mais itens do que a NF e o corte é possível — fazer o corte antes da baixa" },
   "Baixado pelo robô":       { cor: "azul",   dica: "Entrega confirmada no BEES pelo robô — sai da lista na próxima coleta" },
+  "Baixado, mas teve devolução": { cor: "hoje", dica: "O robô deu baixa (regra antiga, sem checar devolução), mas houve devolução total no Winthor — tratar com a BEES" },
+  "Falha marcada pelo robô": { cor: "azul",   dica: "Devolução total: o robô marcou 'Falha na entrega' no BEES" },
   "Em rota":                 { cor: "azul",   dica: "Faturado, saída hoje ou ainda sem saída" },
   "Aguardando faturamento":  { cor: "amanha", dica: "Pedido no Winthor ainda não faturado" },
   "Bloqueado no Winthor":    { cor: "hoje",   dica: "Pedido bloqueado no Winthor" },
@@ -85,7 +89,10 @@ function detalhe(p) {
   const blocoNota = !w?.numped ? `<dd class="fraco">—</dd>` : `
     <dt>Nota fiscal</dt><dd class="mono">${w.nota ?? "—"}${w.faturado_em ? ` <span class="fraco">em ${dataBR(w.faturado_em)}</span>` : ""}</dd>
     <dt>Carregamento</dt><dd class="mono">${w.carga ?? "—"}${w.destino ? ` <span class="fraco">${esc(w.destino)}</span>` : ""}</dd>
-    <dt>Saída do caminhão</dt><dd>${dataBR(w.saida)}</dd>`;
+    <dt>Saída do caminhão</dt><dd>${dataBR(w.saida)}</dd>
+    <dt>Pagamento (DTPAG)</dt><dd>${w.pago_em ? dataBR(w.pago_em) : '<span class="fraco">em aberto</span>'}</dd>
+    ${w.devolucao ? `<dt>Devolução</dt><dd><span class="tag hoje">${w.devolucao.total ? "total" : "parcial"}</span>
+      ${brl(w.devolucao.valor)} <span class="fraco">${esc(w.devolucao.motivo)}</span></dd>` : ""}`;
   return `<tr class="detalhe"><td colspan="10">
     <dl class="det-grade" style="grid-template-columns:repeat(4,1fr)">
       <div><dt>Responsável</dt><dd>${esc(p.responsavel)}</dd><dt>Documento</dt><dd class="mono">${esc(p.documento)}</dd>
