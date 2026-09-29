@@ -66,15 +66,9 @@
   </div>
 
   <div class="secao-titulo">Clientes</div>
-  <div class="grade g-2i" style="margin-bottom:16px">
-    <div class="card">
-      <h2>Pedidos de CPF e de CNPJ <small id="ref-doc">tipo de documento do cliente, em % dos pedidos do período</small></h2>
-      <div class="grafico"><canvas id="g-doc"></canvas></div>
-    </div>
-    <div class="card">
-      <h2>O que aconteceu com os pedidos de CPF</h2>
-      <div id="l-doc-cpf"></div>
-    </div>
+  <div class="card" style="margin-bottom:16px">
+    <h2>Pedidos de CPF e de CNPJ <small id="ref-doc">tipo de documento do cliente, em % dos pedidos do período</small></h2>
+    <div class="grafico" style="height:240px"><canvas id="g-doc"></canvas></div>
   </div>
   <div class="grade g-2">
     <div class="card">
@@ -310,11 +304,6 @@ function render() {
       },
     },
   });
-  const cpf = sel.filter((p) => tipoDoc(p) === "CPF");
-  const situacao = (p) => p.entregue ? "Entregues" : p.robo ? "Cancelados automaticamente" : p.perdido || p.devTotal ? "Não entregues ou devolvidos" : "Em aberto";
-  $("#l-doc-cpf").innerHTML = cpf.length
-    ? barras(agrupar(cpf, situacao, () => 1), (x) => x.k, (x) => x.v, int, (x) => pct(x.v, cpf.length))
-    : `<p class="fraco">Nenhum pedido de CPF no período.</p>`;
 
   // --- Clientes ---
   const inicio = PED.reduce((m, p) => (p.data && p.data < m ? p.data : m), "9999");
