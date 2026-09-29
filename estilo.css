@@ -91,7 +91,7 @@ a { color: var(--garrafa); text-underline-offset: 3px; }
 .topo { background: var(--superficie); box-shadow: 0 1px 0 var(--linha); position: sticky; top: 0; z-index: 10; }
 .topo-in {
   max-width: var(--largo); margin: 0 auto; padding: 12px 28px;
-  display: flex; align-items: center; gap: 12px 20px; flex-wrap: wrap;
+  display: flex; align-items: center; gap: 12px 16px; flex-wrap: wrap;
 }
 .marca { display: flex; align-items: center; gap: 12px; color: var(--tinta); text-decoration: none; align-self: center; }
 .logo-rigarr { width: 36px; height: 36px; border-radius: 8px; display: block; }
@@ -102,7 +102,7 @@ a { color: var(--garrafa); text-underline-offset: 3px; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .logo-bees { filter: invert(1); } }
 /* Com sete páginas no menu não sobra espaço para o nome ao lado das logos */
 .marca span { display: none; }
-.nav { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.nav { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 14px; }
 .nav a { color: var(--apagado); text-decoration: none; font-weight: 500; padding: 4px 0; border-bottom: 2px solid transparent; }
 .nav a:hover { color: var(--tinta); }
 .nav a.ativo { color: var(--tinta); border-bottom: 3px solid var(--faixa); }

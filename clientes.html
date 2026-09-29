@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Clientes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@500;600;700&family=Barlow+Condensed:wght@600;800;900&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- ?v= evita que o navegador mostre dados antigos do cache -->
+<script>document.write('<link rel="stylesheet" href="estilo.css?v=' + Date.now() + '">')</script>
+<script>document.write('<script src="dados.js?v=' + Date.now() + '"><\/script>')</script>
+<script>document.write('<script src="comum.js?v=' + Date.now() + '"><\/script>')</script>
+</head>
+<body>
+<main>
+  <h1>Clientes</h1>
+  <p class="sub">Quem compra, quanto e há quanto tempo. Clique em um cliente para ver contato, pedidos e produtos</p>
+
+  <div class="filtros f-hist">
+    <input id="f-busca" type="search" placeholder="Buscar cliente, código, documento, cidade ou telefone">
+    <select id="f-ano"></select>
+    <select id="f-filial"><option value="">Todas as filiais</option></select>
+    <select id="f-uf"><option value="">Todos os estados</option></select>
+    <select id="f-situacao">
+      <option value="">Todas as situações</option>
+      <option>Ativo</option><option>Atenção</option><option>Em risco</option><option>Inativo</option>
+      <option>Nunca recebeu</option>
+    </select>
+    <select id="f-doc"><option value="">CNPJ e CPF</option></select>
+    <button class="botao" id="b-csv">Baixar CSV</button>
+  </div>
+
+  <div class="grade g-kpi" id="kpis"></div>
+
+  <div class="abas">
+    <button class="ativo" data-aba="clientes">Clientes</button>
+    <button data-aba="resumo">Resumo</button>
+  </div>
+
+  <div id="aba-clientes" class="tabela-wrap"><table id="t-clientes"></table><div class="mostrar-mais" id="mais"></div></div>
+  <div id="aba-resumo" class="grade g-2" hidden style="margin-top:14px">
+    <div class="card"><h2>Clientes por situação <small>pela data da última compra entregue</small></h2><div id="r-situacao"></div></div>
+    <div class="card"><h2>Cidades <small>com mais clientes que compraram no período</small></h2><div id="r-cidades"></div></div>
+  </div>
+</main>
+
+<script>
+montarTopo("clientes");
+
+// Situação pela última compra entregue: até 30 dias, 31 a 60, 61 a 90 e mais de 90
+const SITUACOES = [["Ativo", 30, "ok"], ["Atenção", 60, "amanha"], ["Em risco", 90, "hoje"], ["Inativo", Infinity, ""]];
+const situacaoDe = (dias) => (dias == null ? null : SITUACOES.find(([, lim]) => dias <= lim));
+const LIMITE = 200;
+const CONTATO = D.historico?.clientes || {};
+
+// Um objeto por cliente, a partir dos pedidos do histórico
+const porCliente = new Map();
+for (const p of historico()) {
+  const chave = p.codcli != null ? String(p.codcli) : "n:" + p.cliente;
+  let c = porCliente.get(chave);
+  if (!c) {
+    const [documento, telefone, email, endereco, responsavel, atividade, porte, receita] = CONTATO[chave] || [];
+    c = { chave, codcli: p.codcli, nome: p.cliente, cidade: p.cidade, uf: p.uf_nome, tipo_doc: p.tipo_doc_nome, filiais: new Set(),
+      documento, telefone, email, endereco, responsavel, atividade, porte, receita, pedidos: [] };
+    porCliente.set(chave, c);
+  }
+  c.pedidos.push(p);
+  if (p.filial_nome) c.filiais.add(p.filial_nome);
+  if (!c.cidade && p.cidade) c.cidade = p.cidade;
+  if (!c.uf && p.uf_nome) c.uf = p.uf_nome;
+  if (!c.tipo_doc && p.tipo_doc_nome) c.tipo_doc = p.tipo_doc_nome;
+}
+const CLIENTES = [...porCliente.values()].filter((c) => c.nome);
+for (const c of CLIENTES) {
+  c.pedidos.sort((a, b) => (b.data || "").localeCompare(a.data || ""));
+  const entregues = c.pedidos.filter((p) => p.situacao === "Entregue" && p.data);
+  c.ultima = entregues[0]?.data || null;
+  c.primeira = entregues[entregues.length - 1]?.data || null;
+  c.dias = diasAte(c.ultima) == null ? null : -diasAte(c.ultima);
+  c.situacao = situacaoDe(c.dias)?.[0] || "Nunca recebeu";
+  // Intervalo médio entre compras entregues (dias)
+  c.frequencia = entregues.length > 1
+    ? Math.round((new Date(c.ultima) - new Date(c.primeira)) / 864e5 / (entregues.length - 1)) : null;
+  c.filial = [...c.filiais].sort().join(" e ");
+}
+
+const anoAtual = new Date().getFullYear();
+const anos = [...new Set(historico().map((p) => p.data?.slice(0, 4)).filter(Boolean))].sort().reverse();
+$("#f-ano").innerHTML = `<option value="">Compras em todo o histórico</option><option value="12m">Compras nos últimos 12 meses</option>` +
+  anos.map((a) => `<option value="${a}">Compras em ${a}</option>`).join("");
+const unicos = (f) => [...new Set(CLIENTES.map(f).filter(Boolean))].sort();
+$("#f-filial").insertAdjacentHTML("beforeend", ["Rigarr", "Castas"].map((f) => `<option>${f}</option>`).join(""));
+$("#f-uf").insertAdjacentHTML("beforeend", unicos((c) => c.uf).map((u) => `<option>${esc(u)}</option>`).join(""));
+$("#f-doc").insertAdjacentHTML("beforeend", unicos((c) => c.tipo_doc).map((u) => `<option>${esc(u)}</option>`).join(""));
+
+let ordem = { campo: "valor", asc: false };
+let aberto = null;
+let mostrar = LIMITE;
+
+function noPeriodo(p, periodo) {
+  if (!periodo) return true;
+  if (periodo === "12m") return (diasAte(p.data) ?? -9999) >= -365;
+  return p.data?.slice(0, 4) === periodo;
+}
+
+function filtrar() {
+  const b = $("#f-busca").value.trim().toUpperCase();
+  const periodo = $("#f-ano").value, filial = $("#f-filial").value, uf = $("#f-uf").value;
+  const sit = $("#f-situacao").value, doc = $("#f-doc").value;
+  const lista = [];
+  for (const c of CLIENTES) {
+    if ((filial && !c.filiais.has(filial)) || (uf && c.uf !== uf) || (sit && c.situacao !== sit) || (doc && c.tipo_doc !== doc)) continue;
+    // Quem nunca recebeu um pedido (só cancelados ou não entregues) só aparece quando escolhido no filtro
+    if (!sit && c.situacao === "Nunca recebeu") continue;
+    if (b && ![c.nome, c.codcli, c.documento, c.cidade, c.telefone, c.responsavel].join(" ").toUpperCase().includes(b)) continue;
+    const doPeriodo = c.pedidos.filter((p) => noPeriodo(p, periodo) && (!filial || p.filial_nome === filial));
+    const entregues = doPeriodo.filter((p) => p.situacao === "Entregue");
+    if (periodo && !entregues.length) continue;
+    const valor = entregues.reduce((s, p) => s + p.liquido, 0);
+    lista.push({ ...c, n: entregues.length, valor, ticket: entregues.length ? valor / entregues.length : null,
+      perdidos: doPeriodo.filter((p) => p.situacao === "Cancelado" || p.situacao === "Não entregue").length, doPeriodo });
+  }
+  return lista;
+}
+
+const tagSituacao = (c) => {
+  const s = SITUACOES.find(([n]) => n === c.situacao);
+  return s ? `<span class="tag ${s[2]}">${s[0]}</span>` : `<span class="fraco">${esc(c.situacao)}</span>`;
+};
+const haDias = (d) => (d == null ? "" : d === 0 ? "hoje" : d === 1 ? "ontem" : `há ${int(d)} dias`);
+
+function detalhe(c) {
+  const produtos = {};
+  for (const p of c.doPeriodo) if (p.situacao === "Entregue") for (const i of p.itens) {
+    const g = (produtos[i.produto_nome] ??= { nome: i.produto_nome, qtd: 0, valor: 0 });
+    g.qtd += i.qt_faturada || 0; g.valor += i.valor || 0;
+  }
+  const top = Object.values(produtos).sort((a, b) => b.valor - a.valor).slice(0, 8);
+  return `<tr class="detalhe"><td colspan="${colunas.length}">
+    <dl class="det-grade">
+      <div><dt>Responsável</dt><dd>${esc(c.responsavel) || "—"}</dd><dt>${esc(c.tipo_doc) || "Documento"}</dt><dd class="mono">${esc(c.documento) || "—"}</dd>
+        <dt>Código no Winthor</dt><dd class="mono">${c.codcli ?? "—"}</dd></div>
+      <div><dt>Telefone</dt><dd>${linkTel(c.telefone)}</dd><dt>E-mail</dt><dd>${esc(c.email) || "—"}</dd>
+        <dt>Endereço</dt><dd>${esc(c.endereco) || esc(c.cidade) || "—"}</dd></div>
+      <div><dt>Primeira compra</dt><dd>${dataBR(c.primeira)}</dd>
+        <dt>Compra, em média, a cada</dt><dd>${c.frequencia != null ? `${int(c.frequencia)} dias` : "—"}</dd>
+        <dt>Atividade</dt><dd>${esc(c.atividade) || "—"}${c.porte ? `, ${esc(c.porte).toLowerCase()}` : ""}${c.receita && c.receita.toUpperCase() !== "ATIVA" ? ` <span class="tag hoje">Receita: ${esc(c.receita)}</span>` : ""}</dd></div>
+    </dl>
+    <div class="grade g-2" style="align-items:start">
+      <table class="itens"><thead><tr><th>Pedido</th><th>Data</th><th>Situação</th><th class="n">Valor</th></tr></thead>
+        <tbody>${c.doPeriodo.slice(0, 12).map((p) => `<tr><td class="mono">${esc(p.numero)}</td><td>${dataBR(p.data)}</td>
+          <td>${esc(p.tipo)}${p.motivo_nome && p.situacao !== "Entregue" ? `<div class="fraco">${esc(p.motivo_nome)}</div>` : ""}</td>
+          <td class="n">${brl(p.valor)}</td></tr>`).join("")}</tbody></table>
+      <table class="itens"><thead><tr><th>Produtos que mais compra</th><th class="n">Qtd</th><th class="n">Valor</th></tr></thead>
+        <tbody>${top.length ? top.map((x) => `<tr><td>${esc(x.nome)}</td><td class="n">${int(x.qtd)}</td><td class="n">${brl(x.valor)}</td></tr>`).join("")
+          : `<tr><td colspan="3" class="fraco">Sem itens registrados no Winthor.</td></tr>`}</tbody></table>
+    </div>
+    ${c.doPeriodo.length > 12 ? `<p class="fraco" style="margin-top:10px">Mostrando os 12 pedidos mais recentes de ${int(c.doPeriodo.length)}.</p>` : ""}
+  </td></tr>`;
+}
+
+const colunas = [
+  ["nome", "Cliente"], ["uf", "UF"], ["filial", "Filial"], ["n", "Pedidos", true], ["valor", "Valor", true],
+  ["ticket", "Ticket médio", true], ["dias", "Última compra"], ["situacao", "Situação"],
+];
+
+function render() {
+  const lista = filtrar();
+  const { campo, asc } = ordem;
+  const vazio = asc ? Infinity : -Infinity;
+  lista.sort((a, b) => {
+    const x = a[campo] ?? vazio, y = b[campo] ?? vazio;
+    return (typeof x === "string" ? x.localeCompare(y) : x - y) * (asc ? 1 : -1);
+  });
+
+  const conta = (s) => lista.filter((c) => c.situacao === s).length;
+  const sit = $("#f-situacao").value;
+  const mesAtual = new Date().toISOString().slice(0, 7);
+  const valor = lista.reduce((s, c) => s + c.valor, 0);
+  $("#kpis").innerHTML = [
+    kpi(sit === "Nunca recebeu" ? "Clientes" : "Clientes que compraram", int(lista.length), `${brl(valor, true)} em compras entregues`, true),
+    kpi("Ativos", int(conta("Ativo")), "compraram nos últimos 30 dias"),
+    kpi("Novos no mês", int(lista.filter((c) => c.primeira?.slice(0, 7) === mesAtual).length), "primeira compra neste mês"),
+    kpi("Em risco", int(conta("Em risco") + conta("Atenção")), "última compra entre 31 e 90 dias"),
+    kpi("Inativos", int(conta("Inativo")), "mais de 90 dias sem comprar"),
+  ].join("");
+
+  const visiveis = lista.slice(0, mostrar);
+  $("#t-clientes").innerHTML = lista.length ? `<thead><tr>${colunas.map(([c, n, num]) =>
+    `<th data-c="${c}" class="${num ? "n" : ""}">${n}${ordem.campo === c ? (ordem.asc ? " ↑" : " ↓") : ""}</th>`).join("")}</tr></thead>
+    <tbody>${visiveis.map((c) => `<tr class="clicavel${aberto === c.chave ? " aberto" : ""}" data-k="${esc(c.chave)}">
+      <td>${esc(c.nome)}<div class="fraco">${esc(c.cidade) || ""}</div></td><td class="fraco">${esc(c.uf) || "—"}</td>
+      <td>${[...c.filiais].sort().map((f) => `<span class="tag ${f.toLowerCase()}">${f}</span>`).join(" ") || "—"}</td>
+      <td class="n">${int(c.n)}${c.perdidos ? `<div class="fraco" style="white-space:nowrap">${int(c.perdidos)} sem entrega</div>` : ""}</td>
+      <td class="n">${brl(c.valor)}</td><td class="n">${brl(c.ticket)}</td>
+      <td>${dataBR(c.ultima)}<div class="fraco">${haDias(c.dias)}</div></td><td>${tagSituacao(c)}</td></tr>
+      ${aberto === c.chave ? detalhe(c) : ""}`).join("")}</tbody>`
+    : `<tbody><tr><td class="vazio">Nenhum cliente com esses filtros.</td></tr></tbody>`;
+  $("#mais").innerHTML = lista.length > visiveis.length
+    ? `Mostrando ${int(visiveis.length)} de ${int(lista.length)} clientes <button class="botao" id="b-mais">Mostrar mais</button>` : "";
+
+  $("#r-situacao").innerHTML = barras([...SITUACOES.map(([n]) => n), "Nunca recebeu"].map((n) => ({ n, v: conta(n) })).filter((x) => x.v),
+    (x) => x.n, (x) => x.v);
+  const cidades = {};
+  for (const c of lista) if (c.cidade && c.n) cidades[c.cidade] = (cidades[c.cidade] || 0) + 1;
+  $("#r-cidades").innerHTML = barras(Object.entries(cidades).sort((a, b) => b[1] - a[1]).slice(0, 15), (x) => x[0], (x) => x[1]);
+  return lista;
+}
+
+$("#t-clientes").addEventListener("click", (e) => {
+  const th = e.target.closest("th[data-c]");
+  if (th) {
+    ordem = { campo: th.dataset.c, asc: ordem.campo === th.dataset.c ? !ordem.asc : ["nome", "uf", "filial", "dias", "situacao"].includes(th.dataset.c) };
+    return render();
+  }
+  const tr = e.target.closest("tr.clicavel");
+  if (tr && !e.target.closest("a")) { aberto = aberto === tr.dataset.k ? null : tr.dataset.k; render(); }
+});
+$("#mais").addEventListener("click", (e) => { if (e.target.id === "b-mais") { mostrar += LIMITE * 5; render(); } });
+document.querySelectorAll(".filtros input, .filtros select").forEach((el) => el.addEventListener("input", () => { mostrar = LIMITE; render(); }));
+document.querySelectorAll(".abas button").forEach((b) => b.addEventListener("click", () => {
+  document.querySelectorAll(".abas button").forEach((x) => x.classList.toggle("ativo", x === b));
+  $("#aba-clientes").hidden = b.dataset.aba !== "clientes";
+  $("#aba-resumo").hidden = b.dataset.aba !== "resumo";
+}));
+
+$("#b-csv").addEventListener("click", () => {
+  const cab = ["Cliente", "Código Winthor", "Tipo de documento", "Documento", "Responsável", "Telefone", "E-mail", "Endereço", "Cidade",
+    "UF", "Filial", "Pedidos entregues", "Valor", "Ticket médio", "Pedidos sem entrega", "Primeira compra", "Última compra",
+    "Dias sem comprar", "Compra a cada (dias)", "Situação", "Atividade", "Porte"];
+  baixarCSV("clientes", cab, render().map((c) => [c.nome, c.codcli ?? "", c.tipo_doc, c.documento, c.responsavel, c.telefone, c.email,
+    c.endereco, c.cidade, c.uf, c.filial, c.n, numCSV(c.valor), numCSV(c.ticket), c.perdidos, dCSV(c.primeira), dCSV(c.ultima),
+    c.dias ?? "", c.frequencia ?? "", c.situacao, c.atividade, c.porte]));
+});
+
+render();
+</script>
+</body>
+</html>
