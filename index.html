@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex, nofollow">
 <title>Painel BEES</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@500;600;700&family=Barlow+Condensed:wght@600;800;900&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <!-- ?v= evita que o navegador mostre dados antigos do cache -->
 <script>document.write('<link rel="stylesheet" href="estilo.css?v=' + Date.now() + '">')</script>
 <script>document.write('<script src="dados.js?v=' + Date.now() + '"><\/script>')</script>
@@ -15,39 +15,38 @@
 </head>
 <body>
 <main>
-  <h1>Dashboard</h1>
-  <p class="sub">Visão geral dos pedidos BEES — Rigarr e Castas</p>
+  <p class="dia" id="hoje"></p>
+  <h1 class="frase" id="frase"></h1>
+  <nav class="fluxo" id="fluxo" aria-label="Pedidos por etapa"></nav>
 
-  <div class="grade g-kpi" id="kpis-fluxo"></div>
-
-  <div class="secao-titulo">Vendas entregues <span id="ref-entregues" style="text-transform:none;letter-spacing:0;font-weight:400"></span></div>
+  <div class="secao-titulo">Vendas entregues <span id="ref-entregues"></span></div>
   <div class="grade g-kpi" id="kpis-vendas" style="margin-top:0"></div>
 
   <div class="grade g-2 secao" style="margin-top:16px">
     <div class="card">
-      <h2>Faturamento mensal <small>entregues · últimos 12 meses</small></h2>
+      <h2>Faturamento mensal <small>pedidos entregues nos últimos 12 meses</small></h2>
       <div class="grafico alto"><canvas id="g-mensal"></canvas></div>
     </div>
     <div class="card">
       <h2>Por estado <small>últimos 90 dias</small></h2>
       <div id="l-uf"></div>
-      <h2 style="margin-top:22px">Formas de pagamento <small>90 dias</small></h2>
+      <h2 style="margin-top:28px">Formas de pagamento <small>últimos 90 dias</small></h2>
       <div id="l-pag"></div>
     </div>
   </div>
 
   <div class="grade g-2i secao" style="margin-top:16px">
     <div class="card">
-      <h2>Produtos mais vendidos <small>por valor · 90 dias</small></h2>
+      <h2>Produtos mais vendidos <small>por valor, últimos 90 dias</small></h2>
       <div id="l-produtos"></div>
     </div>
     <div class="card">
-      <h2>Cidades <small>por valor · 90 dias</small></h2>
+      <h2>Cidades <small>por valor, últimos 90 dias</small></h2>
       <div id="l-cidades"></div>
     </div>
   </div>
 
-  <div class="secao-titulo">Robô de baixa no BEES <span id="ref-robo" style="text-transform:none;letter-spacing:0;font-weight:400"></span></div>
+  <div class="secao-titulo">Robô de baixa no BEES <span id="ref-robo"></span></div>
   <div class="grade g-kpi" id="kpis-robo" style="margin-top:0"></div>
   <div class="grade g-2" style="margin-top:16px">
     <div class="card">
@@ -57,7 +56,7 @@
     <div class="card">
       <h2>Pendências <small>pedidos a ser entregues</small></h2>
       <div id="l-pendencias"></div>
-      <p class="fraco" style="font-size:12px;margin-top:14px">Detalhes na página <a href="entregar.html" style="color:var(--accent)">A entregar</a>.</p>
+      <p class="fraco" style="font-size:13px;margin-top:16px">Cada pedido está na página <a href="entregar.html">A entregar</a>.</p>
     </div>
   </div>
   <div class="card" style="margin-top:16px">
@@ -66,6 +65,7 @@
   </div>
 
   <div class="secao-titulo">Operação</div>
+  <div class="grade g-kpi" id="kpis-operacao" style="margin:0 0 32px"></div>
   <div class="grade g-2">
     <div class="card">
       <h2>Mensagens e e-mails enviados <small>últimos 30 dias</small></h2>
@@ -85,7 +85,7 @@
     </div>
   </div>
 
-  <div class="secao-titulo">Clientes consultados na Receita (cnpja)</div>
+  <div class="secao-titulo">Clientes consultados na Receita <span>via cnpja</span></div>
   <div class="grade g-3">
     <div class="card"><h2>Porte</h2><div id="l-porte"></div></div>
     <div class="card"><h2>Estado</h2><div id="l-cnpj-uf"></div></div>
@@ -105,28 +105,48 @@ const ne = D.nao_emitidos || { pedidos: [], por_situacao: [] };
 const msgs = D.mensagens || {};
 // Pedidos que o robô já baixou continuam na lista até a próxima coleta — ficam fora dos "em aberto"
 const listaEntregar = D.a_entregar?.lista || [];
+// Pedidos que o robô já resolveu no BEES continuam na tabela até a próxima coleta: ficam de fora
+const resolvidos = new Set(listaEntregar.filter((p) => /^(Baixado|Falha marcada)/.test(p.acao)).map((p) => p.filial + p.numero));
+const nePend = ne.pedidos.filter((p) => !resolvidos.has(p.filial + p.numero));
 const emAberto = listaEntregar.filter((p) => !["Baixado pelo robô", "Baixado, mas teve devolução", "Falha marcada pelo robô"].includes(p.acao));
 
-// --- KPIs de fluxo ---
+// --- Abertura: frase do dia e fluxo dos pedidos ---
 const valorPrep = prep.reduce((s, p) => s + (p.total || 0), 0);
 const urgentes = prep.filter((p) => (diasAte(p.data_entrega) ?? 99) <= 1).length;
-const neAbertos = ne.pedidos.filter((p) => p.situacao !== "CANCELADO");
 const TIPOS = { CLIENTE: "Aviso financeiro", SAUDACAO: "Saudação", CADASTRO_EMAIL: "E-mail cadastro" };
 const msgHoje = Object.values(msgs.hoje || {}).reduce((a, b) => a + b, 0);
-$("#kpis-fluxo").innerHTML = [
-  kpi("A preparar", int(prep.length), `${brl(valorPrep)} · <b>${urgentes}</b> entregam até amanhã`, true),
-  kpi("A ser entregues", int(emAberto.length), `${brl(emAberto.reduce((s, p) => s + (p.total || 0), 0))} · sem os já baixados`),
-  kpi("Não emitidos no Winthor", int(neAbertos.length), brl(neAbertos.reduce((s, p) => s + (p.total || 0), 0)) + " (sem cancelados)"),
+
+$("#hoje").textContent = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })
+  .replace(/^./, (c) => c.toUpperCase());
+$("#frase").innerHTML = prep.length
+  ? `<b>${int(prep.length)}</b> ${prep.length === 1 ? "pedido" : "pedidos"} para separar, <b>${int(urgentes)}</b> com entrega até amanhã.`
+  : "Nenhum pedido para separar agora.";
+
+const porAcao = (...acoes) => listaEntregar.filter((p) => acoes.includes(p.acao));
+const soma = (l) => l.reduce((s, p) => s + (p.total || 0), 0);
+const etapas = [
+  { nome: "A preparar", lista: prep, link: "preparar.html" },
+  { nome: "Aguardando nota", lista: porAcao("Aguardando faturamento"), link: "entregar.html" },
+  { nome: "Em entrega", lista: porAcao("Em rota", "Aguardando pagamento", "Aguardando data de entrega"), link: "entregar.html" },
+  { nome: "Pronto para baixa", lista: porAcao("Dar baixa no BEES"), link: "entregar.html" },
+  { nome: "Precisa de atenção", lista: porAcao("Sem pedido no Winthor", "Cancelar no BEES", "Falha na entrega (devolução)", "Baixado, mas teve devolução"), link: "entregar.html" },
+];
+$("#fluxo").innerHTML = etapas.map((e) => `<a href="${e.link}">
+  <div class="etapa-nome">${e.nome}</div><div class="etapa-n">${int(e.lista.length)}</div>
+  <div class="etapa-det">${brl(soma(e.lista), true)}</div></a>`).join("");
+
+$("#kpis-operacao").innerHTML = [
+  kpi("Não emitidos no Winthor", int(nePend.filter((p) => p.situacao !== "CANCELADO").length), "pedidos a entregar sem nota, fora os cancelados"),
   kpi("Fila de cadastro", int((D.cadastro || []).length), "CNPJ aguardando cadastro no Winthor"),
-  kpi("Envios hoje", int(msgHoje), Object.entries(msgs.hoje || {}).map(([k, v]) => `${TIPOS[k] || k}: ${v}`).join(" · ") || "nenhum"),
+  kpi("Envios hoje", int(msgHoje), Object.entries(msgs.hoje || {}).map(([k, v]) => `${TIPOS[k] || k}: ${v}`).join(", ") || "nenhum"),
 ].join("");
 
 // --- KPIs de vendas ---
 const d30 = E.d30 || {}, ant = E.d30_anterior || {};
 if (E.referencia) {
   const atraso = -diasAte(E.referencia);
-  const porFilial = Object.entries(E.ultima_por_filial || {}).map(([f, d]) => `${f} ${dataBR(d)}`).join(" · ");
-  $("#ref-entregues").innerHTML = `— até ${dataBR(E.referencia)}` + (atraso > 3
+  const porFilial = Object.entries(E.ultima_por_filial || {}).map(([f, d]) => `${f} ${dataBR(d)}`).join(", ");
+  $("#ref-entregues").innerHTML = `até ${dataBR(E.referencia)}` + (atraso > 3
     ? ` <span class="tag hoje" title="Última entrega registrada: ${porFilial}">coleta de entregues parada há ${atraso} dias</span>` : "");
 }
 $("#kpis-vendas").innerHTML = [
@@ -174,7 +194,7 @@ if (E.mensal) {
 }
 
 if (msgs.dias) {
-  const paleta = [css("--accent"), css("--castas"), css("--ok"), css("--warn")];
+  const paleta = [css("--garrafa"), css("--ambar"), css("--alerta"), css("--apagado")];
   new Chart($("#g-msgs"), {
     type: "bar",
     data: {
@@ -210,9 +230,9 @@ $("#l-cadastro").innerHTML = barras(cadUF, (x) => x.uf, (x) => x.n, int)
 // --- Robô de baixa ---
 const R = D.robo || {};
 if (R.total) {
-  $("#ref-robo").textContent = R.ultima_execucao ? `— última ação em ${new Date(R.ultima_execucao).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}` : "";
+  $("#ref-robo").textContent = R.ultima_execucao ? `última ação em ${new Date(R.ultima_execucao).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}` : "";
   const pf = R.por_filial || {};
-  const porFilial = (...tipos) => Object.entries(pf).map(([f, v]) => `${f} ${int(tipos.reduce((s, t) => s + v[t], 0))}`).join(" · ");
+  const porFilial = (...tipos) => Object.entries(pf).map(([f, v]) => `${f} ${int(tipos.reduce((s, t) => s + v[t], 0))}`).join(", ");
   $("#kpis-robo").innerHTML = [
     kpi("Baixas confirmadas", int(R.total["Baixa"] + R.total["Baixa com corte"]), porFilial("Baixa", "Baixa com corte"), true),
     kpi("Baixas com corte", int(R.total["Baixa com corte"]), "itens não faturados ou devolvidos"),
@@ -221,7 +241,7 @@ if (R.total) {
     kpi("Erros", int(R.total["Erro"]), R.total["Erro"] ? "ver Log_Baixas_BEES" : "nenhum"),
   ].join("");
 
-  const coresRobo = { "Baixa": css("--ok"), "Baixa com corte": css("--accent"), "Falha na entrega": css("--danger") };
+  const coresRobo = { "Baixa": css("--garrafa"), "Baixa com corte": css("--ambar"), "Falha na entrega": css("--alerta") };
   new Chart($("#g-robo"), {
     type: "bar",
     data: {
@@ -248,14 +268,17 @@ const pend = ["Dar baixa no BEES", "Aguardando data de entrega", "Aguardando pag
 $("#l-pendencias").innerHTML = barras(pend, (x) => x.a, (x) => x.l.length, int, (x) => brl(x.l.reduce((s, p) => s + (p.total || 0), 0), true));
 
 // --- Não emitidos ---
-$("#l-nao-emitidos-sit").innerHTML = ne.por_situacao.map((s) =>
-  `<div class="kpi"><div class="rot">${esc(s.situacao)}</div><div class="val" style="font-size:20px">${int(s.pedidos)}</div>
-   <div class="det">${brl(s.valor)}</div></div>`).join("");
+const frase1 = (t) => String(t || "").toLowerCase().replace(/^./, (c) => c.toUpperCase()).replace("winthor", "Winthor");
+const porSit = {};
+for (const p of nePend) (porSit[p.situacao] ??= []).push(p);
+$("#l-nao-emitidos-sit").innerHTML = Object.entries(porSit).sort((a, b) => b[1].length - a[1].length).map(([sit, l]) =>
+  kpi(frase1(sit), int(l.length), brl(soma(l)))).join("")
+  + (resolvidos.size ? `<p class="fraco" style="font-size:13px;align-self:end">Sem contar ${int(ne.pedidos.length - nePend.length)} pedidos que o robô já resolveu no BEES.</p>` : "");
 $("#t-nao-emitidos").innerHTML = `<thead><tr><th>Pedido</th><th>Filial</th><th>Cliente</th><th>CD</th><th>Entrega</th>
-  <th class="n">Total</th><th>Situação</th><th>Motivo / ação</th></tr></thead><tbody>${ne.pedidos.map((p) => `<tr>
+  <th class="n">Total</th><th>Situação</th><th>Motivo ou ação</th></tr></thead><tbody>${nePend.map((p) => `<tr>
   <td class="mono">${p.numero}</td><td><span class="tag ${p.filial.toLowerCase()}">${p.filial}</span></td>
   <td>${esc(p.cliente)}</td><td class="fraco">${esc(p.cd)}</td><td>${dataBR(p.data_entrega)}</td>
-  <td class="n">${brl(p.total)}</td><td>${esc(p.situacao)}</td><td class="fraco">${esc(p.motivo)}</td></tr>`).join("")}</tbody>`;
+  <td class="n">${brl(p.total)}</td><td>${esc(frase1(p.situacao))}</td><td class="fraco">${esc(p.motivo)}</td></tr>`).join("")}</tbody>`;
 
 // --- CNPJ ---
 const C = D.cnpj || {};

@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex, nofollow">
 <title>Pedidos a Entregar</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@500;600;700&family=Barlow+Condensed:wght@600;800;900&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <!-- ?v= evita que o navegador mostre dados antigos do cache -->
 <script>document.write('<link rel="stylesheet" href="estilo.css?v=' + Date.now() + '">')</script>
 <script>document.write('<script src="dados.js?v=' + Date.now() + '"><\/script>')</script>
@@ -59,7 +59,7 @@ const ACOES = {
 const tagAcao = (a) => `<span class="tag ${ACOES[a]?.cor ?? ""}" title="${esc(ACOES[a]?.dica)}">${esc(a)}</span>`;
 
 if (AE.winthor_verificado_em)
-  $("#sub").textContent += ` · Winthor consultado em ${new Date(AE.winthor_verificado_em).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}`;
+  $("#sub").textContent += `. Winthor consultado em ${new Date(AE.winthor_verificado_em).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}`;
 
 const unicos = (campo) => [...new Set(pedidos.map((p) => p[campo]).filter(Boolean))].sort();
 for (const [id, campo] of [["f-filial", "filial"], ["f-uf", "uf"], ["f-cd", "cd"]])
@@ -85,7 +85,7 @@ function detalhe(p) {
   const w = p.winthor;
   const blocoWinthor = !w ? `<dd class="fraco">Não consultado</dd>` : `
     <dt>Situação</dt><dd>${esc(w.situacao)}${w.posicao ? ` <span class="fraco">(posição ${esc(w.posicao)})</span>` : ""}</dd>
-    ${w.numped ? `<dt>Pedido Winthor · Cliente</dt><dd class="mono">${w.numped} · ${w.codcli ?? "—"} <span class="fraco">(${esc(w.schema)} / filial ${esc(w.filial)})</span></dd>` : ""}
+    ${w.numped ? `<dt>Pedido Winthor</dt><dd class="mono">${w.numped}</dd><dt>Código do cliente</dt><dd class="mono">${w.codcli ?? "—"} <span class="fraco">(${esc(w.schema)} / filial ${esc(w.filial)})</span></dd>` : ""}
     ${p.robo ? `<dt>Robô de baixa</dt><dd>${esc(p.robo.resultado)} <span class="fraco">em ${esc(p.robo.quando)}</span>
       ${p.robo.detalhe ? `<div class="fraco" style="font-size:12px">${esc(p.robo.detalhe)}</div>` : ""}</dd>` : ""}`;
   const blocoNota = !w?.numped ? `<dd class="fraco">—</dd>` : `
