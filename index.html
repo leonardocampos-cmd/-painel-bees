@@ -297,9 +297,10 @@ function render() {
     options: {
       maintainAspectRatio: false, cutout: "55%",
       plugins: {
-        legend: { position: "right", labels: { usePointStyle: true, boxWidth: 8,
+        legend: { position: "right", labels: { usePointStyle: true, boxWidth: 8, color: css("--tinta"),
           generateLabels: (ch) => ch.data.labels.map((l, i) => ({ text: `${l}: ${pct(ch.data.datasets[0].data[i], sel.length)}`,
-            fillStyle: ch.data.datasets[0].backgroundColor[i], strokeStyle: "transparent", pointStyle: "circle", index: i })) } },
+            fillStyle: ch.data.datasets[0].backgroundColor[i], strokeStyle: "transparent", pointStyle: "circle",
+            fontColor: css("--tinta"), index: i })) } },
         tooltip: { callbacks: { label: (c) => ` ${c.label}: ${int(c.raw)} pedidos (${pct(c.raw, sel.length)})` } },
       },
     },
