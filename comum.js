@@ -76,6 +76,7 @@ function montarTopo(ativo) {
         <a href="index.html" class="${ativo === "dash" ? "ativo" : ""}">Visão geral</a>
         <a href="preparar.html" class="${ativo === "preparar" ? "ativo" : ""}">A preparar</a>
         <a href="entregar.html" class="${ativo === "entregar" ? "ativo" : ""}">A entregar</a>
+        <a href="produtos.html" class="${ativo === "produtos" ? "ativo" : ""}">Produtos</a>
       </nav>
       <div class="gerado">${gerado ? `Dados de ${gerado.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}` : "Sem dados"}</div>
       <button class="tema" id="btn-tema">Tema</button>

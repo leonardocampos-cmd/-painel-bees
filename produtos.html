@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Produtos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@500;600;700&family=Barlow+Condensed:wght@600;800;900&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- ?v= evita que o navegador mostre dados antigos do cache -->
+<script>document.write('<link rel="stylesheet" href="estilo.css?v=' + Date.now() + '">')</script>
+<script>document.write('<script src="dados.js?v=' + Date.now() + '"><\/script>')</script>
+<script>document.write('<script src="comum.js?v=' + Date.now() + '"><\/script>')</script>
+<style>
+  .grade-produtos { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-top: 20px; }
+  .produto { background: var(--superficie); border: 1px solid var(--linha); border-radius: var(--raio); overflow: hidden; display: flex; flex-direction: column; }
+  .produto .foto { aspect-ratio: 4 / 3; background: #fff; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid var(--linha); }
+  .produto .foto img { max-width: 80%; max-height: 88%; object-fit: contain; }
+  .produto .foto span { color: #999; font-size: 13px; }
+  .produto .corpo { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+  .produto h3 { font-family: var(--titulo); font-size: 16px; font-weight: 600; line-height: 1.25; }
+  .produto .sku { font-size: 13px; color: var(--apagado); display: flex; gap: 12px; align-items: center; }
+  .produto table { font-size: 13px; }
+  .produto th, .produto td { padding: 6px 8px; position: static; background: none; cursor: default; }
+  .produto th:first-child, .produto td:first-child { padding-left: 0; }
+  .produto th:last-child, .produto td:last-child { padding-right: 0; }
+  .riscado { text-decoration: line-through; color: var(--apagado); font-size: 12px; margin-right: 4px; }
+  .promo { font-weight: 700; }
+  .selo-promo { background: var(--faixa); color: #000; font-weight: 700; font-size: 11px; padding: 2px 8px; border-radius: 999px; }
+  .indisponivel { color: var(--alerta); font-weight: 600; white-space: nowrap; }
+  .filtros-produtos { display: grid; grid-template-columns: 2fr repeat(3, 1fr); gap: 10px; margin-top: 24px; }
+  @media (max-width: 800px) { .filtros-produtos { grid-template-columns: 1fr 1fr; } }
+  .filtros-produtos input, .filtros-produtos select {
+    width: 100%; padding: 10px 14px; border: 1px solid var(--linha); border-radius: 999px;
+    background: var(--superficie); color: var(--tinta); font: inherit; font-size: 14px;
+  }
+  .mais { margin: 24px auto 0; display: block; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Produtos</h1>
+  <p class="sub" id="sub">Preço, promoção e estoque de cada produto nos centros de distribuição do BEES.</p>
+
+  <div class="filtros-produtos">
+    <input id="f-busca" type="search" placeholder="Buscar por nome ou SKU">
+    <select id="f-filial"><option value="">Rigarr e Castas</option><option>Rigarr</option><option>Castas</option></select>
+    <select id="f-uf"><option value="">Todos os estados</option></select>
+    <select id="f-situacao">
+      <option value="">Todas as situações</option>
+      <option value="promo">Em promoção</option>
+      <option value="sem-estoque">Sem estoque no BEES</option>
+      <option value="sem-foto">Sem foto</option>
+    </select>
+  </div>
+
+  <div class="grade g-kpi" id="kpis"></div>
+  <div class="grade-produtos" id="grade"></div>
+  <button class="botao mais" id="b-mais" hidden>Mostrar mais</button>
+</main>
+
+<script>
+montarTopo("produtos");
+
+const PR = D.produtos || { itens: [] };
+const itens = PR.itens || [];
+if (PR.atualizado_em)
+  $("#sub").textContent += ` Preços de ${new Date(PR.atualizado_em).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}.`;
+
+const ufs = [...new Set(itens.flatMap((p) => p.cds.map((c) => c.uf)).filter(Boolean))].sort();
+$("#f-uf").insertAdjacentHTML("beforeend", ufs.map((u) => `<option>${esc(u)}</option>`).join(""));
+
+// Saldo que o cliente vê no BEES: o enviado pelo robô de estoque (Rigarr); na Castas, o do Winthor
+const saldo = (c) => (c.saldo_bees != null ? c.saldo_bees : c.estoque);
+const semEstoque = (p, cds) => cds.every((c) => (saldo(c) ?? 0) <= 0);
+const POR_PAGINA = 60;
+let limite = POR_PAGINA;
+
+function filtrar() {
+  const b = $("#f-busca").value.trim().toUpperCase();
+  const filial = $("#f-filial").value, uf = $("#f-uf").value, sit = $("#f-situacao").value;
+  return itens.map((p) => ({ ...p, cdsVis: p.cds.filter((c) => !uf || c.uf === uf) })).filter((p) =>
+    p.cdsVis.length &&
+    (!filial || p.filial === filial) &&
+    (!b || (p.nome + " " + p.sku).toUpperCase().includes(b)) &&
+    (sit !== "promo" || p.cdsVis.some((c) => c.promo)) &&
+    (sit !== "sem-estoque" || semEstoque(p, p.cdsVis)) &&
+    (sit !== "sem-foto" || !p.foto));
+}
+
+function cartao(p) {
+  const temPromo = p.cdsVis.some((c) => c.promo);
+  const linhas = p.cdsVis.map((c) => {
+    const s = saldo(c);
+    const preco = c.promo && c.promo < (c.preco ?? Infinity)
+      ? `<span class="riscado">${brl(c.preco)}</span><span class="promo">${brl(c.promo)}</span>`
+      : c.promo ? `<span class="promo">${brl(c.promo)}</span>` : brl(c.preco);
+    return `<tr><td>${esc(c.uf)}</td><td class="n">${preco}</td>
+      <td class="n">${s == null ? '<span class="fraco">—</span>' : s <= 0 ? '<span class="indisponivel">Sem estoque</span>' : int(s)}</td></tr>`;
+  }).join("");
+  return `<article class="produto">
+    <div class="foto">${p.foto ? `<img src="${esc(p.foto)}" alt="${esc(p.nome)}" loading="lazy">` : "<span>Sem foto</span>"}</div>
+    <div class="corpo">
+      <h3>${esc(p.nome)}</h3>
+      <div class="sku"><span>SKU ${esc(p.sku)}</span><span class="tag ${p.filial.toLowerCase()}">${p.filial}</span>
+        ${temPromo ? '<span class="selo-promo">Promoção</span>' : ""}</div>
+      <table><thead><tr><th>Estado</th><th class="n">Preço</th><th class="n">Estoque</th></tr></thead><tbody>${linhas}</tbody></table>
+    </div></article>`;
+}
+
+function render() {
+  const lista = filtrar();
+  $("#kpis").innerHTML = [
+    kpi("Produtos", int(lista.length), "no filtro escolhido", true),
+    kpi("Em promoção", int(lista.filter((p) => p.cdsVis.some((c) => c.promo)).length), "em pelo menos um estado"),
+    kpi("Sem estoque no BEES", int(lista.filter((p) => semEstoque(p, p.cdsVis)).length), "indisponíveis para o cliente"),
+    kpi("Sem foto", int(lista.filter((p) => !p.foto).length), "sem imagem cadastrada"),
+  ].join("");
+  $("#grade").innerHTML = lista.length ? lista.slice(0, limite).map(cartao).join("")
+    : `<p class="vazio">Nenhum produto com esses filtros.</p>`;
+  $("#b-mais").hidden = lista.length <= limite;
+  $("#b-mais").textContent = `Mostrar mais (${int(lista.length - limite)} restantes)`;
+}
+
+document.querySelectorAll(".filtros-produtos input, .filtros-produtos select").forEach((el) =>
+  el.addEventListener("input", () => { limite = POR_PAGINA; render(); }));
+$("#b-mais").addEventListener("click", () => { limite += POR_PAGINA; render(); });
+render();
+</script>
+</body>
+</html>
