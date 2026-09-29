@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Pedidos Entregues</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@500;600;700&family=Barlow+Condensed:wght@600;800;900&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- ?v= evita que o navegador mostre dados antigos do cache -->
+<script>document.write('<link rel="stylesheet" href="estilo.css?v=' + Date.now() + '">')</script>
+<script>document.write('<script src="dados.js?v=' + Date.now() + '"><\/script>')</script>
+<script>document.write('<script src="comum.js?v=' + Date.now() + '"><\/script>')</script>
+<script>document.write('<script src="pedidos_historico.js?v=' + Date.now() + '"><\/script>')</script>
+</head>
+<body>
+<main>
+  <h1>Pedidos entregues</h1>
+  <p class="sub">Pedidos faturados no Winthor ou entregues no BEES. Clique em um pedido para ver os itens</p>
+
+  <div class="filtros f-hist">
+    <input id="f-busca" type="search" placeholder="Buscar pedido, cliente, cidade, motivo ou produto">
+    <select id="f-ano"></select>
+    <select id="f-mes"></select>
+    <select id="f-filial"><option value="">Todas as filiais</option></select>
+    <select id="f-uf"><option value="">Todos os estados</option></select>
+    <select id="f-tipo"><option value="">Entregas completas e parciais</option></select>
+    <button class="botao" id="b-csv">Baixar CSV</button>
+  </div>
+
+  <div class="grade g-kpi" id="kpis"></div>
+
+  <div class="abas">
+    <button class="ativo" data-aba="pedidos">Pedidos</button>
+    <button data-aba="resumo">Resumo</button>
+  </div>
+
+  <div id="aba-pedidos" class="tabela-wrap"><table id="t-pedidos"></table><div class="mais" id="mais"></div></div>
+  <div id="aba-resumo" class="grade g-2" hidden style="margin-top:14px">
+    <div class="card"><h2></h2><div id="r-1"></div></div>
+    <div class="card"><h2>Cidades <small>com mais pedidos, nos filtros escolhidos</small></h2><div id="r-2"></div></div>
+  </div>
+</main>
+
+<script>paginaHistorico("entregues");</script>
+</body>
+</html>
