@@ -7,9 +7,10 @@
 <title>Painel BEES</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="estilo.css">
-<script src="dados.js"></script>
-<script src="comum.js"></script>
+<!-- ?v= evita que o navegador mostre dados antigos do cache -->
+<script>document.write('<link rel="stylesheet" href="estilo.css?v=' + Date.now() + '">')</script>
+<script>document.write('<script src="dados.js?v=' + Date.now() + '"><\/script>')</script>
+<script>document.write('<script src="comum.js?v=' + Date.now() + '"><\/script>')</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 </head>
 <body>
@@ -71,7 +72,7 @@
       <div class="grafico"><canvas id="g-msgs"></canvas></div>
     </div>
     <div class="card">
-      <h2>Fila de cadastro <small>novos clientes aguardando Winthor</small></h2>
+      <h2>Fila de cadastro <small>novos clientes CNPJ aguardando Winthor</small></h2>
       <div id="l-cadastro"></div>
     </div>
   </div>
@@ -116,7 +117,7 @@ $("#kpis-fluxo").innerHTML = [
   kpi("A preparar", int(prep.length), `${brl(valorPrep)} · <b>${urgentes}</b> entregam até amanhã`, true),
   kpi("A ser entregues", int(emAberto.length), `${brl(emAberto.reduce((s, p) => s + (p.total || 0), 0))} · sem os já baixados`),
   kpi("Não emitidos no Winthor", int(neAbertos.length), brl(neAbertos.reduce((s, p) => s + (p.total || 0), 0)) + " (sem cancelados)"),
-  kpi("Fila de cadastro", int((D.cadastro || []).length), `${(D.cadastro || []).filter((c) => c.tipo === "CPF").length} CPF`),
+  kpi("Fila de cadastro", int((D.cadastro || []).length), "CNPJ aguardando cadastro no Winthor"),
   kpi("Envios hoje", int(msgHoje), Object.entries(msgs.hoje || {}).map(([k, v]) => `${TIPOS[k] || k}: ${v}`).join(" · ") || "nenhum"),
 ].join("");
 
@@ -199,14 +200,12 @@ $("#l-produtos").innerHTML = barras(E.produtos_90d?.slice(0, 12), (x) => x.produ
 $("#l-cidades").innerHTML = barras(E.cidades_90d, (x) => x.cidade, (x) => x.valor, (v) => brl(v, true), (x) => `${x.pedidos} ped.`);
 
 const cad = D.cadastro || [];
-const cadUF = ["RJ", "SP", "MG", "ES"].map((uf) => ({
-  uf, cnpj: cad.filter((c) => c.uf === uf && c.tipo === "CNPJ").length, cpf: cad.filter((c) => c.uf === uf && c.tipo === "CPF").length,
-}));
-$("#l-cadastro").innerHTML = barras(cadUF, (x) => x.uf, (x) => x.cnpj + x.cpf, int, (x) => `${x.cnpj} CNPJ · ${x.cpf} CPF`)
+const cadUF = ["RJ", "SP", "MG", "ES"].map((uf) => ({ uf, n: cad.filter((c) => c.uf === uf).length }));
+$("#l-cadastro").innerHTML = barras(cadUF, (x) => x.uf, (x) => x.n, int)
   + (cad.length ? `<div class="tabela-wrap" style="margin-top:16px;max-height:190px"><table>
-      <thead><tr><th>UF</th><th>Cliente</th><th>Cidade</th><th>Tipo</th></tr></thead>
+      <thead><tr><th>UF</th><th>Cliente</th><th>Cidade</th><th>CD</th></tr></thead>
       <tbody>${cad.map((c) => `<tr><td>${c.uf}</td><td>${esc(c.cliente)}</td><td class="fraco">${esc(c.cidade)}</td>
-        <td><span class="tag ${c.tipo === "CPF" ? "cpf" : ""}">${c.tipo}</span></td></tr>`).join("")}</tbody></table></div>` : "");
+        <td class="fraco">${esc(c.cd)}</td></tr>`).join("")}</tbody></table></div>` : "");
 
 // --- Robô de baixa ---
 const R = D.robo || {};

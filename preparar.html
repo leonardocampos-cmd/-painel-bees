@@ -7,9 +7,10 @@
 <title>Pedidos a Preparar</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="estilo.css">
-<script src="dados.js"></script>
-<script src="comum.js"></script>
+<!-- ?v= evita que o navegador mostre dados antigos do cache -->
+<script>document.write('<link rel="stylesheet" href="estilo.css?v=' + Date.now() + '">')</script>
+<script>document.write('<script src="dados.js?v=' + Date.now() + '"><\/script>')</script>
+<script>document.write('<script src="comum.js?v=' + Date.now() + '"><\/script>')</script>
 </head>
 <body>
 <main>
