@@ -45,7 +45,7 @@
   <div class="grade g-kpi" id="kpis-entrega" style="margin-top:0"></div>
   <div class="grade g-2" style="margin-top:16px">
     <div class="card">
-      <h2>Resultado dos pedidos por mês <small>entregues, devolvidos e não entregues, no ano escolhido</small></h2>
+      <h2>Resultado dos pedidos por mês <small>entregues e não entregues (devolvidos, cancelados ou rejeitados), no ano escolhido</small></h2>
       <div class="grafico"><canvas id="g-resultado"></canvas></div>
     </div>
     <div class="card">
@@ -66,6 +66,16 @@
   </div>
 
   <div class="secao-titulo">Clientes</div>
+  <div class="grade g-2i" style="margin-bottom:16px">
+    <div class="card">
+      <h2>Pedidos de CPF e de CNPJ <small id="ref-doc">tipo de documento do cliente, em % dos pedidos do período</small></h2>
+      <div class="grafico"><canvas id="g-doc"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>O que aconteceu com os pedidos de CPF</h2>
+      <div id="l-doc-cpf"></div>
+    </div>
+  </div>
   <div class="grade g-2">
     <div class="card">
       <h2>Clientes novos e recorrentes por mês <small id="ref-novos">no ano escolhido</small></h2>
@@ -109,9 +119,9 @@ const porAcao = (...acoes) => listaEntregar.filter((p) => acoes.includes(p.acao)
 const etapas = [
   { nome: "A preparar", lista: prep, link: "preparar.html" },
   { nome: "Aguardando nota", lista: porAcao("Aguardando faturamento", "Não verificado"), link: "entregar.html" },
-  { nome: "Em entrega", lista: porAcao("Em rota", "Aguardando pagamento", "Aguardando data de entrega"), link: "entregar.html" },
-  { nome: "Pronto para baixa", lista: porAcao("Dar baixa no BEES"), link: "entregar.html" },
-  { nome: "Precisa de atenção", lista: porAcao("Sem pedido no Winthor", "Cancelar no BEES", "Falha na entrega (devolução)", "Baixado, mas teve devolução"), link: "entregar.html" },
+  { nome: "Em entrega", lista: porAcao("Em rota", "Aguardando data de entrega"), link: "entregar.html" },
+  { nome: "Aguardando pagamento", lista: porAcao("Aguardando pagamento"), link: "entregar.html" },
+  // Baixas e falhas na entrega são feitas pelo robô e não aparecem aqui
 ];
 $("#fluxo").innerHTML = etapas.map((e) => `<a href="${e.link}">
   <div class="etapa-nome">${e.nome}</div><div class="etapa-n">${int(e.lista.length)}</div>
@@ -252,9 +262,7 @@ function render() {
     type: "bar",
     data: { labels: MESES, datasets: [
       { label: "Entregues", data: porMes((l) => l.filter((p) => p.entregue).length), backgroundColor: cor.preto, borderRadius: 4, stack: "s" },
-      { label: "Devolução total", data: porMes((l) => l.filter((p) => p.devTotal).length), backgroundColor: cor.amarelo, borderRadius: 4, stack: "s" },
-      { label: "Não entregues", data: porMes((l) => l.filter((p) => p.perdido).length), backgroundColor: cor.alerta, borderRadius: 4, stack: "s" },
-      { label: "Cancelados pelo robô", data: porMes((l) => l.filter((p) => p.robo).length), backgroundColor: cor.apagado, borderRadius: 4, stack: "s" },
+      { label: "Não entregues", data: porMes((l) => l.filter((p) => p.perdido || p.devTotal).length), backgroundColor: cor.alerta, borderRadius: 4, stack: "s" },
     ] },
     options: opcoesBarras(),
   });
@@ -283,6 +291,30 @@ function render() {
   $("#l-industria").innerHTML = barras(industrias, (x) => nomeIndustria(x.k), (x) => x.valor, (v) => brl(v, true), (x) => `${pct(x.dev, x.fat)} devolvido`);
   $("#l-secao").innerHTML = barras(agrupar(itensFat, (i) => L.secao?.[i.secao], (i) => i.valor || 0).slice(0, 10), (x) => frase1(x.k), (x) => x.v, (v) => brl(v, true));
   $("#l-produtos").innerHTML = barras(agrupar(itensFat, (i) => L.produto?.[i.produto], (i) => i.valor || 0).slice(0, 10), (x) => frase1(x.k), (x) => x.v, (v) => brl(v, true));
+
+  // --- CPF x CNPJ ---
+  const tipoDoc = (p) => L.tipo_doc?.[p.tipo_doc] || "Não identificado";
+  const porDoc = agrupar(sel, tipoDoc, () => 1);
+  const coresDoc = { CNPJ: cor.preto, CPF: cor.amarelo, "Não identificado": cor.apagado };
+  grafico("g-doc", {
+    type: "doughnut",
+    data: { labels: porDoc.map((x) => x.k), datasets: [{ data: porDoc.map((x) => x.v), backgroundColor: porDoc.map((x) => coresDoc[x.k]),
+      borderColor: css("--superficie"), borderWidth: 3 }] },
+    options: {
+      maintainAspectRatio: false, cutout: "55%",
+      plugins: {
+        legend: { position: "right", labels: { usePointStyle: true, boxWidth: 8,
+          generateLabels: (ch) => ch.data.labels.map((l, i) => ({ text: `${l}: ${pct(ch.data.datasets[0].data[i], sel.length)}`,
+            fillStyle: ch.data.datasets[0].backgroundColor[i], strokeStyle: "transparent", pointStyle: "circle", index: i })) } },
+        tooltip: { callbacks: { label: (c) => ` ${c.label}: ${int(c.raw)} pedidos (${pct(c.raw, sel.length)})` } },
+      },
+    },
+  });
+  const cpf = sel.filter((p) => tipoDoc(p) === "CPF");
+  const situacao = (p) => p.entregue ? "Entregues" : p.robo ? "Cancelados pelo robô" : p.perdido || p.devTotal ? "Não entregues ou devolvidos" : "Em aberto";
+  $("#l-doc-cpf").innerHTML = cpf.length
+    ? barras(agrupar(cpf, situacao, () => 1), (x) => x.k, (x) => x.v, int, (x) => pct(x.v, cpf.length))
+    : `<p class="fraco">Nenhum pedido de CPF no período.</p>`;
 
   // --- Clientes ---
   const inicio = PED.reduce((m, p) => (p.data && p.data < m ? p.data : m), "9999");

@@ -90,12 +90,17 @@ a { color: var(--garrafa); text-underline-offset: 3px; }
 /* --- Topo ---------------------------------------------------------------- */
 .topo { background: var(--superficie); box-shadow: 0 1px 0 var(--linha); position: sticky; top: 0; z-index: 10; }
 .topo-in {
-  max-width: var(--largo); margin: 0 auto; padding: 14px 28px;
-  display: flex; align-items: baseline; gap: 36px; flex-wrap: wrap;
+  max-width: var(--largo); margin: 0 auto; padding: 12px 28px;
+  display: flex; align-items: center; gap: 36px; flex-wrap: wrap;
 }
-.marca { font-family: var(--titulo); font-weight: 700; font-size: 19px; display: flex; align-items: center; gap: 10px; }
-.marca i { width: 26px; height: 26px; border-radius: 50%; background: var(--faixa); display: inline-block; }
-.marca span { font-family: var(--font); font-weight: 400; color: var(--apagado); font-size: 14px; }
+.marca { display: flex; align-items: center; gap: 12px; color: var(--tinta); text-decoration: none; align-self: center; }
+.logo-rigarr { width: 36px; height: 36px; border-radius: 8px; display: block; }
+.logo-bees { height: 22px; width: auto; display: block; }
+.marca span { font-weight: 500; color: var(--apagado); font-size: 14px; padding-left: 12px; border-left: 1px solid var(--linha); }
+/* A logo do BEES é preta: no tema escuro fica branca */
+:root[data-theme="dark"] .logo-bees { filter: invert(1); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .logo-bees { filter: invert(1); } }
+@media (max-width: 640px) { .marca span { display: none; } }
 .nav { display: flex; gap: 22px; }
 .nav a { color: var(--apagado); text-decoration: none; font-weight: 500; padding: 4px 0; border-bottom: 2px solid transparent; }
 .nav a:hover { color: var(--tinta); }
@@ -122,7 +127,7 @@ h1 { font-family: var(--titulo); font-size: 30px; font-weight: 600; line-height:
 /* Faixa do fluxo do pedido: o único elemento de destaque da página */
 .fluxo {
   margin-top: 28px; padding: 24px 28px 22px; background: var(--faixa); color: var(--faixa-tinta); border-radius: var(--raio);
-  display: grid; grid-template-columns: repeat(5, 1fr); gap: 0;
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
 }
 .fluxo a { color: inherit; text-decoration: none; display: block; padding: 0 20px 0 18px; border-left: 1px solid rgba(0,0,0,.22); }
 .fluxo a:first-child { border-left: 0; padding-left: 0; }
@@ -250,7 +255,7 @@ tbody tr.aberto td:first-child { box-shadow: inset 4px 0 0 var(--faixa); }
 
 /* --- Filtro de período do dashboard (fica visível ao rolar) ---------------- */
 .filtros-periodo {
-  position: sticky; top: 57px; z-index: 5; margin: 36px 0 0; padding: 12px 0;
+  position: sticky; top: 61px; z-index: 5; margin: 36px 0 0; padding: 12px 0;
   display: flex; align-items: center; gap: 12px 18px; flex-wrap: wrap; background: var(--papel);
 }
 .filtros-periodo label { display: flex; align-items: center; gap: 8px; font-weight: 600; font-family: var(--titulo); }

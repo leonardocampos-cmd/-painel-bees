@@ -89,7 +89,6 @@ function render() {
     kpi("Valor total", brl(total)),
     kpi("Ticket médio", brl(lista.length ? total / lista.length : null)),
     kpi("Entregam até amanhã", int(lista.filter((p) => (diasAte(p.data_entrega) ?? 99) <= 1).length)),
-    kpi("Clientes CPF", int(lista.filter((p) => p.documento.startsWith("CPF")).length), "não elegíveis — serão cancelados"),
   ].join("");
 
   $("#t-pedidos").innerHTML = lista.length ? `<thead><tr>${colunas.map(([c, n, num]) =>
@@ -99,7 +98,7 @@ function render() {
       return `<tr class="clicavel${aberto === chave ? " aberto" : ""}" data-k="${chave}">
         <td class="mono">${p.numero}</td><td><span class="tag ${p.filial.toLowerCase()}">${p.filial}</span></td>
         <td class="fraco">${esc(p.cd)}</td>
-        <td>${esc(p.cliente)}${p.documento.startsWith("CPF") ? ' <span class="tag cpf">CPF</span>' : ""}</td>
+        <td>${esc(p.cliente)}</td>
         <td class="fraco">${esc(p.cidade)}</td><td>${tagEntrega(p.data_entrega)}</td><td class="fraco">${esc(p.pagamento)}</td>
         <td class="n">${p.n_itens}</td><td class="n">${brl(p.total)}</td></tr>${aberto === chave ? detalhe(p) : ""}`;
     }).join("")}</tbody>` : `<tbody><tr><td class="vazio">Nenhum pedido a preparar${pedidos.length ? " com esses filtros" : ""}.</td></tr></tbody>`;

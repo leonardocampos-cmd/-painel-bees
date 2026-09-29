@@ -71,7 +71,7 @@ function montarTopo(ativo) {
   const gerado = D.gerado_em ? new Date(D.gerado_em) : null;
   document.body.insertAdjacentHTML("afterbegin", `
     <header class="topo"><div class="topo-in">
-      <div class="marca"><i></i>Painel BEES<span>Rigarr e Castas</span></div>
+      <a class="marca" href="index.html" aria-label="Painel de pedidos Rigarr no BEES"><img class="logo-rigarr" src="logo_rigarr.png" alt="Grupo Rigarr"><img class="logo-bees" src="logo_bees.svg" alt="BEES One"><span>Painel de pedidos</span></a>
       <nav class="nav">
         <a href="index.html" class="${ativo === "dash" ? "ativo" : ""}">Visão geral</a>
         <a href="preparar.html" class="${ativo === "preparar" ? "ativo" : ""}">A preparar</a>

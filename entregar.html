@@ -37,18 +37,17 @@
 montarTopo("entregar");
 
 const AE = D.a_entregar || {};
-const pedidos = AE.lista || [];
+// O que a automação resolve sozinha (baixa e falha na entrega, feitas ou a fazer) não aparece:
+// a página mostra só o que depende de alguém
+const AUTOMATICO = ["Baixado pelo robô", "Falha marcada pelo robô", "Dar baixa no BEES", "Falha na entrega (devolução)"];
+const pedidos = (AE.lista || []).filter((p) => !AUTOMATICO.includes(p.acao));
 
 // Ordem e cor de cada próximo passo sugerido
 const ACOES = {
-  "Dar baixa no BEES":       { cor: "ok",     dica: "Faturado e pago (DTPAG) — o robô confirma a entrega com a data do pagamento" },
-  "Aguardando data de entrega": { cor: "azul", dica: "CD RIGARRRJ2: o robô dá baixa quando a data de entrega do BEES passar" },
+  "Aguardando data de entrega": { cor: "azul", dica: "CD RIGARRRJ2: a baixa é automática quando a data de entrega do BEES passar" },
   "Aguardando pagamento":    { cor: "amanha", dica: "Faturado, mas o título (PCPREST) ainda não tem DTPAG — a baixa espera o pagamento" },
-  "Falha na entrega (devolução)": { cor: "hoje", dica: "Devolução total no Winthor — o robô marca 'Falha na entrega' com o motivo da devolução" },
   "Aguarda corte":           { cor: "amanha", dica: "BEES tem mais itens do que a NF e o corte é possível — fazer o corte antes da baixa" },
-  "Baixado pelo robô":       { cor: "azul",   dica: "Entrega confirmada no BEES pelo robô — sai da lista na próxima coleta" },
-  "Baixado, mas teve devolução": { cor: "hoje", dica: "O robô deu baixa (regra antiga, sem checar devolução), mas houve devolução total no Winthor — tratar com a BEES" },
-  "Falha marcada pelo robô": { cor: "azul",   dica: "Devolução total: o robô marcou 'Falha na entrega' no BEES" },
+  "Baixado, mas teve devolução": { cor: "hoje", dica: "Baixa dada antes da checagem de devolução, mas houve devolução total no Winthor: tratar com a BEES" },
   "Em rota":                 { cor: "azul",   dica: "Faturado, saída hoje ou ainda sem saída" },
   "Aguardando faturamento":  { cor: "amanha", dica: "Pedido no Winthor ainda não faturado" },
   "Bloqueado no Winthor":    { cor: "hoje",   dica: "Pedido bloqueado no Winthor" },
@@ -86,8 +85,7 @@ function detalhe(p) {
   const blocoWinthor = !w ? `<dd class="fraco">Não consultado</dd>` : `
     <dt>Situação</dt><dd>${esc(w.situacao)}${w.posicao ? ` <span class="fraco">(posição ${esc(w.posicao)})</span>` : ""}</dd>
     ${w.numped ? `<dt>Pedido Winthor</dt><dd class="mono">${w.numped}</dd><dt>Código do cliente</dt><dd class="mono">${w.codcli ?? "—"} <span class="fraco">(${esc(w.schema)} / filial ${esc(w.filial)})</span></dd>` : ""}
-    ${p.robo ? `<dt>Robô de baixa</dt><dd>${esc(p.robo.resultado)} <span class="fraco">em ${esc(p.robo.quando)}</span>
-      ${p.robo.detalhe ? `<div class="fraco" style="font-size:12px">${esc(p.robo.detalhe)}</div>` : ""}</dd>` : ""}`;
+`;
   const blocoNota = !w?.numped ? `<dd class="fraco">—</dd>` : `
     <dt>Nota fiscal</dt><dd class="mono">${w.nota ?? "—"}${w.faturado_em ? ` <span class="fraco">em ${dataBR(w.faturado_em)}</span>` : ""}</dd>
     <dt>Carregamento</dt><dd class="mono">${w.carga ?? "—"}${w.destino ? ` <span class="fraco">${esc(w.destino)}</span>` : ""}</dd>
@@ -184,13 +182,13 @@ document.querySelectorAll(".filtros input, .filtros select").forEach((el) => el.
 $("#b-csv").addEventListener("click", () => {
   const cab = ["Pedido BEES", "Filial", "UF", "CD", "Cliente", "Documento", "Cidade", "Entrega BEES", "Pagamento", "Telefone",
     "Total BEES", "Próximo passo", "Situação Winthor", "Pedido Winthor", "Cód. cliente", "Valor Winthor", "Faturado em", "NF",
-    "Carregamento", "Saída", "Itens ≠ NF (corte)", "Robô de baixa"];
+    "Carregamento", "Saída", "Itens ≠ NF (corte)"];
   const linhas = filtrar().map((p) => {
     const w = p.winthor || {};
     return [p.numero, p.filial, p.uf, p.cd, p.cliente, p.documento, p.cidade, dataBR(p.data_entrega), p.pagamento, p.telefone,
       String(p.total ?? "").replace(".", ","), p.acao, w.situacao, w.numped, w.codcli, String(w.valor ?? "").replace(".", ","),
       w.faturado_em ? dataBR(w.faturado_em) : "", w.nota, w.carga, w.saida ? dataBR(w.saida) : "",
-      p.cortes.map((c) => `${c.sku}: ${c.bees}→${c.nf}`).join(", "), p.robo ? `${p.robo.resultado} ${p.robo.detalhe}`.trim() : ""];
+      p.cortes.map((c) => `${c.sku}: ${c.bees}→${c.nf}`).join(", ")];
   });
   const csv = [cab, ...linhas].map((l) => l.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(";")).join("\r\n");
   Object.assign(document.createElement("a"), {
