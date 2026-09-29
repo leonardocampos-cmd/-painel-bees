@@ -244,7 +244,7 @@ if (R.total) {
       <td><span class="tag ${TAG[u.resultado] || (u.resultado.startsWith("ERRO") ? "hoje" : "")}">${esc(u.resultado)}</span></td>
       <td class="fraco">${esc(u.detalhe)}</td></tr>`).join("")}</tbody>`;
 }
-const pend = ["Dar baixa no BEES", "Aguardando pagamento", "Falha na entrega (devolução)", "Baixado, mas teve devolução", "Sem pedido no Winthor", "Cancelar no BEES", "Aguardando faturamento"]
+const pend = ["Dar baixa no BEES", "Aguardando data de entrega", "Aguardando pagamento", "Falha na entrega (devolução)", "Baixado, mas teve devolução", "Sem pedido no Winthor", "Cancelar no BEES", "Aguardando faturamento"]
   .map((a) => ({ a, l: listaEntregar.filter((p) => p.acao === a) })).filter((x) => x.l.length);
 $("#l-pendencias").innerHTML = barras(pend, (x) => x.a, (x) => x.l.length, int, (x) => brl(x.l.reduce((s, p) => s + (p.total || 0), 0), true));
 

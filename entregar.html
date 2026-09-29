@@ -41,6 +41,7 @@ const pedidos = AE.lista || [];
 // Ordem e cor de cada próximo passo sugerido
 const ACOES = {
   "Dar baixa no BEES":       { cor: "ok",     dica: "Faturado e pago (DTPAG) — o robô confirma a entrega com a data do pagamento" },
+  "Aguardando data de entrega": { cor: "azul", dica: "CD RIGARRRJ2: o robô dá baixa quando a data de entrega do BEES passar" },
   "Aguardando pagamento":    { cor: "amanha", dica: "Faturado, mas o título (PCPREST) ainda não tem DTPAG — a baixa espera o pagamento" },
   "Falha na entrega (devolução)": { cor: "hoje", dica: "Devolução total no Winthor — o robô marca 'Falha na entrega' com o motivo da devolução" },
   "Aguarda corte":           { cor: "amanha", dica: "BEES tem mais itens do que a NF e o corte é possível — fazer o corte antes da baixa" },
