@@ -28,6 +28,11 @@
 
   <div class="secao-titulo">Vendas</div>
   <div class="grade g-kpi" id="kpis-vendas" style="margin-top:0"></div>
+  <div class="card" style="margin-top:16px">
+    <h2>Faturamento por dia <small id="ref-dia"></small></h2>
+    <div class="grafico" style="height:260px"><canvas id="g-dia"></canvas></div>
+    <div id="pedidos-dia"></div>
+  </div>
   <div class="grade g-2" style="margin-top:16px">
     <div class="card">
       <h2>Receita líquida por mês <small>faturado menos devolvido, no ano escolhido</small></h2>
@@ -231,6 +236,7 @@ function render() {
     options: opcoesBarras({ plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => " " + brl(c.raw) } } },
       scales: { x: { grid: { display: false } }, y: { ticks: { callback: (v) => brl(v, true) } } } }),
   });
+  renderDias(ano, mes, uf);
   $("#l-uf").innerHTML = barras(agrupar(faturados, (p) => p.uf_nome, (p) => p.liquido), (x) => x.k, (x) => x.v, (v) => brl(v, true));
   $("#l-pag").innerHTML = barras(agrupar(entregues, (p) => L.pagamento?.[p.pagamento], () => 1).slice(0, 5), (x) => frase1(x.k), (x) => x.v, int);
 
@@ -348,6 +354,108 @@ function render() {
     options: opcoesBarras({ plugins: { legend: { display: false } } }),
   });
 }
+
+// --- Faturamento por dia: receita líquida (barras) e ticket médio (linha), pela data do pedido,
+// com as mesmas regras dos indicadores de Vendas. Clicar num dia abre os pedidos dele. ---
+const HIST = historico();  // mesmos pedidos de PED, com a situação por extenso (comum.js)
+let diaSel = null, pedidoAberto = null, filtroDia = {}, diasGrafico = [];
+const isoLocal = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+function renderDias(ano, mes, uf) {
+  const hoje = isoLocal(new Date());
+  let dias;
+  if (mes) {
+    const n = new Date(+ano, +mes, 0).getDate();
+    dias = Array.from({ length: n }, (_, i) => `${ano}-${mes}-${String(i + 1).padStart(2, "0")}`).filter((d) => d <= hoje);
+    $("#ref-dia").textContent = `receita líquida e ticket médio de cada dia de ${MESES[+mes - 1].toLowerCase()}; clique num dia para ver os pedidos`;
+  } else {
+    const fim = new Date((ano === hoje.slice(0, 4) ? hoje : `${ano}-12-31`) + "T12:00:00");
+    dias = Array.from({ length: 60 }, (_, i) => { const d = new Date(fim); d.setDate(d.getDate() - 59 + i); return isoLocal(d); });
+    $("#ref-dia").textContent = "receita líquida e ticket médio nos últimos 60 dias do ano; escolha um mês para ver o mês inteiro. Clique num dia para ver os pedidos";
+  }
+  filtroDia = { uf };
+  diasGrafico = dias;
+  if (diaSel && !dias.includes(diaSel)) diaSel = null;
+
+  const receita = Object.fromEntries(dias.map((d) => [d, 0]));
+  const entregues = Object.fromEntries(dias.map((d) => [d, 0]));
+  for (const p of PED) {
+    if (!(p.data in receita) || (uf && p.uf_nome !== uf)) continue;
+    if (p.faturado) receita[p.data] += p.liquido;
+    if (p.entregue) entregues[p.data]++;
+  }
+  const rotulos = dias.map((d) => `${d.slice(8, 10)}/${d.slice(5, 7)}`);
+  const fundo = dias.map((d) => (!diaSel || d === diaSel ? cor.preto : cor.preto + "40"));
+  grafico("g-dia", {
+    type: "bar",
+    data: { labels: rotulos, datasets: [
+      { type: "line", label: "Ticket médio", data: dias.map((d) => (entregues[d] ? receita[d] / entregues[d] : null)), yAxisID: "y2",
+        borderColor: cor.amarelo, backgroundColor: cor.amarelo, pointRadius: 3, tension: 0.3, spanGaps: true, order: 0 },
+      { label: "Receita líquida", data: dias.map((d) => receita[d]), backgroundColor: fundo, borderRadius: 4, order: 1 },
+    ] },
+    options: opcoesBarras({
+      plugins: { legend: { position: "bottom", labels: { usePointStyle: true, boxWidth: 8 } },
+        tooltip: { callbacks: {
+          title: (c) => dataBR(dias[c[0].dataIndex]),
+          label: (c) => ` ${c.dataset.label}: ${brl(c.raw)}`,
+          afterBody: (c) => `${int(entregues[dias[c[0].dataIndex]])} pedidos entregues`,
+        } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true, autoSkipPadding: 8 } },
+        y: { ticks: { callback: (v) => brl(v, true) } },
+        y2: { position: "right", grid: { display: false }, ticks: { callback: (v) => brl(v, true) } },
+      },
+    }),
+  });
+  renderPedidosDia();
+}
+
+function renderPedidosDia() {
+  const alvo = $("#pedidos-dia");
+  if (!diaSel) { alvo.innerHTML = ""; return; }
+  const { uf } = filtroDia;
+  const lista = HIST.filter((p) => p.data === diaSel && (!uf || p.uf_nome === uf)).sort((a, b) => (b.valor || 0) - (a.valor || 0));
+  const fat = PED.filter((p) => p.data === diaSel && (!uf || p.uf_nome === uf));
+  const receita = fat.filter((p) => p.faturado).reduce((s, p) => s + p.liquido, 0);
+  const nEnt = fat.filter((p) => p.entregue).length;
+  alvo.innerHTML = `<div class="dia-cab">
+      <h3>Pedidos de ${dataBR(diaSel)}${uf ? `, ${esc(uf)}` : ""}</h3>
+      <span class="fraco">${int(lista.length)} pedidos, ${int(nEnt)} entregues, receita líquida ${brl(receita)}, ticket médio ${brl(nEnt ? receita / nEnt : null)}</span>
+      <button class="tema" id="b-fechar-dia">Fechar</button></div>
+    <div class="tabela-wrap"><table>
+      <thead><tr><th>Pedido</th><th>Filial</th><th>Cliente</th><th>Cidade</th><th>Situação</th><th>Pagamento</th><th class="n">Valor</th></tr></thead>
+      <tbody>${lista.map((p) => `<tr class="clicavel${pedidoAberto === p.numero ? " aberto" : ""}" data-k="${esc(p.numero)}">
+        <td class="mono">${esc(p.numero)}</td>
+        <td>${p.filial_nome ? `<span class="tag ${p.filial_nome.toLowerCase()}">${p.filial_nome}</span>` : "—"}</td>
+        <td>${esc(p.cliente) || "—"}</td><td class="fraco">${esc(p.cidade) || "—"}</td>
+        <td>${esc(p.tipo)}${p.motivo_nome && p.situacao !== "Entregue" ? `<div class="fraco">${esc(p.motivo_nome)}</div>` : ""}</td>
+        <td class="fraco">${esc(p.pagamento_nome) || "—"}</td>
+        <td class="n">${brl(p.valor)}${p.devolvido > 0 ? `<div class="fraco">devolvido ${brl(p.devolvido)}</div>` : ""}</td></tr>
+        ${pedidoAberto === p.numero ? `<tr class="detalhe"><td colspan="7">${p.itens.length
+          ? `<table class="itens"><thead><tr><th>Produto</th><th class="n">Qtd pedida</th><th class="n">Qtd faturada</th><th class="n">Qtd devolvida</th><th class="n">Valor</th></tr></thead>
+            <tbody>${p.itens.map((i) => `<tr><td>${esc(i.produto_nome)}</td><td class="n">${int(i.qt_pedida)}</td><td class="n">${int(i.qt_faturada)}</td>
+            <td class="n">${i.qt_devolvida ? int(i.qt_devolvida) : "—"}</td><td class="n">${brl(i.valor)}</td></tr>`).join("")}</tbody></table>`
+          : `<p class="fraco">Pedido sem nota no Winthor, por isso sem itens registrados.</p>`}</td></tr>` : ""}`).join("")
+        || `<tr><td class="vazio" colspan="7">Nenhum pedido nesse dia.</td></tr>`}</tbody>
+    </table></div>`;
+  $("#b-fechar-dia").onclick = () => { diaSel = null; pedidoAberto = null; render(); };
+}
+// Clique no gráfico: o dia sai da posição na horizontal (a coluna inteira é clicável, mesmo em dia com
+// barra baixa). Fica fora do onClick do Chart.js porque o gráfico é recriado a cada clique.
+$("#g-dia").style.cursor = "pointer";
+$("#g-dia").addEventListener("click", (e) => {
+  const ch = graficos["g-dia"];
+  if (!ch) return;
+  const r = e.currentTarget.getBoundingClientRect(), a = ch.chartArea;
+  const x = e.clientX - r.left;
+  if (x < a.left || x > a.right) return;  // na altura vale qualquer ponto, inclusive a data embaixo da barra
+  const dia = diasGrafico[Math.round(ch.scales.x.getValueForPixel(x))];
+  if (dia) { diaSel = dia; pedidoAberto = null; render(); }
+});
+$("#pedidos-dia").addEventListener("click", (e) => {
+  const tr = e.target.closest("tr.clicavel");
+  if (tr) { pedidoAberto = pedidoAberto === tr.dataset.k ? null : tr.dataset.k; renderPedidosDia(); }
+});
 
 ["#f-ano", "#f-mes", "#f-uf"].forEach((id) => $(id).addEventListener("change", render));
 render();

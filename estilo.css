@@ -285,3 +285,9 @@ tbody tr.aberto td:first-child { box-shadow: inset 4px 0 0 var(--faixa); }
 @media (max-width: 640px) { .filtros.f-hist { grid-template-columns: 1fr 1fr; } }
 .mostrar-mais { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 16px; color: var(--apagado); font-size: 14px; }
 .mostrar-mais .botao { padding: 8px 18px; }
+
+/* --- Pedidos do dia (Visão geral, gráfico de faturamento por dia) --------- */
+#pedidos-dia:not(:empty) { margin-top: 18px; border-top: 1px solid var(--linha); padding-top: 16px; }
+.dia-cab { display: flex; align-items: baseline; gap: 6px 14px; flex-wrap: wrap; margin-bottom: 12px; }
+.dia-cab h3 { font-family: var(--titulo); font-size: 18px; font-weight: 600; }
+.dia-cab .tema { margin-left: auto; }
