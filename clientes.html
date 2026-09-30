@@ -52,20 +52,23 @@ montarTopo("clientes");
 const SITUACOES = [["Ativo", 30, "ok"], ["Atenção", 60, "amanha"], ["Em risco", 90, "hoje"], ["Inativo", Infinity, ""]];
 const situacaoDe = (dias) => (dias == null ? null : SITUACOES.find(([, lim]) => dias <= lim));
 const LIMITE = 200;
-const CONTATO = D.historico?.clientes || {};
+// Cadastro de cada cliente (exportar_painel.py): identificado pelo CPF/CNPJ do BEES
+const CAD = D.historico?.clientes || [];
+const CAMPOS_CAD = D.historico?.campos_clientes || [];
 
 // Um objeto por cliente, a partir dos pedidos do histórico
 const porCliente = new Map();
 for (const p of historico()) {
-  const chave = p.codcli != null ? String(p.codcli) : "n:" + p.cliente;
+  const chave = p.cli ?? (p.codcli != null ? String(p.codcli) : "n:" + p.cliente);
   let c = porCliente.get(chave);
   if (!c) {
-    const [documento, telefone, email, endereco, responsavel, atividade, porte, receita] = CONTATO[chave] || [];
-    c = { chave, codcli: p.codcli, nome: p.cliente, cidade: p.cidade, uf: p.uf_nome, tipo_doc: p.tipo_doc_nome, filiais: new Set(),
-      documento, telefone, email, endereco, responsavel, atividade, porte, receita, pedidos: [] };
+    const cad = Object.fromEntries(CAMPOS_CAD.map((k, i) => [k, CAD[p.cli]?.[i] ?? null]));
+    c = { ...cad, chave: String(chave), nome: cad.nome || p.cliente, cidade: p.cidade, uf: p.uf_nome, codigos: new Set(),
+      tipo_doc: cad.documento ? (cad.documento.length === 14 ? "CNPJ" : "CPF") : p.tipo_doc_nome, filiais: new Set(), pedidos: [] };
     porCliente.set(chave, c);
   }
   c.pedidos.push(p);
+  if (p.codcli != null) c.codigos.add(p.codcli);
   if (p.filial_nome) c.filiais.add(p.filial_nome);
   if (!c.cidade && p.cidade) c.cidade = p.cidade;
   if (!c.uf && p.uf_nome) c.uf = p.uf_nome;
@@ -83,9 +86,15 @@ for (const c of CLIENTES) {
   c.frequencia = entregues.length > 1
     ? Math.round((new Date(c.ultima) - new Date(c.primeira)) / 864e5 / (entregues.length - 1)) : null;
   c.filial = [...c.filiais].sort().join(" e ");
+  c.codcli = [...c.codigos].join(", ");
+  c.documento_fmt = fmtDoc(c.documento);
 }
 
-const anoAtual = new Date().getFullYear();
+function fmtDoc(d) {
+  if (!d) return "";
+  return d.length === 14 ? d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5")
+    : d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+}
 const anos = [...new Set(historico().map((p) => p.data?.slice(0, 4)).filter(Boolean))].sort().reverse();
 $("#f-ano").innerHTML = `<option value="">Compras em todo o histórico</option><option value="12m">Compras nos últimos 12 meses</option>` +
   anos.map((a) => `<option value="${a}">Compras em ${a}</option>`).join("");
@@ -113,7 +122,7 @@ function filtrar() {
     if ((filial && !c.filiais.has(filial)) || (uf && c.uf !== uf) || (sit && c.situacao !== sit) || (doc && c.tipo_doc !== doc)) continue;
     // Quem nunca recebeu um pedido (só cancelados ou não entregues) só aparece quando escolhido no filtro
     if (!sit && c.situacao === "Nunca recebeu") continue;
-    if (b && ![c.nome, c.codcli, c.documento, c.cidade, c.telefone, c.responsavel].join(" ").toUpperCase().includes(b)) continue;
+    if (b && ![c.nome, c.codcli, c.documento, c.documento_fmt, c.cidade, c.telefone, c.responsavel, c.email].join(" ").toUpperCase().includes(b)) continue;
     const doPeriodo = c.pedidos.filter((p) => noPeriodo(p, periodo) && (!filial || p.filial_nome === filial));
     const entregues = doPeriodo.filter((p) => p.situacao === "Entregue");
     if (periodo && !entregues.length) continue;
@@ -139,8 +148,8 @@ function detalhe(c) {
   const top = Object.values(produtos).sort((a, b) => b.valor - a.valor).slice(0, 8);
   return `<tr class="detalhe"><td colspan="${colunas.length}">
     <dl class="det-grade">
-      <div><dt>Responsável</dt><dd>${esc(c.responsavel) || "—"}</dd><dt>${esc(c.tipo_doc) || "Documento"}</dt><dd class="mono">${esc(c.documento) || "—"}</dd>
-        <dt>Código no Winthor</dt><dd class="mono">${c.codcli ?? "—"}</dd></div>
+      <div><dt>Responsável</dt><dd>${esc(c.responsavel) || "—"}</dd><dt>${esc(c.tipo_doc) || "Documento"}</dt><dd class="mono">${esc(c.documento_fmt) || "—"}</dd>
+        <dt>Código no Winthor</dt><dd class="mono">${esc(c.codcli) || "—"}</dd></div>
       <div><dt>Telefone</dt><dd>${linkTel(c.telefone)}</dd><dt>E-mail</dt><dd>${esc(c.email) || "—"}</dd>
         <dt>Endereço</dt><dd>${esc(c.endereco) || esc(c.cidade) || "—"}</dd></div>
       <div><dt>Primeira compra</dt><dd>${dataBR(c.primeira)}</dd>
@@ -229,7 +238,7 @@ $("#b-csv").addEventListener("click", () => {
   const cab = ["Cliente", "Código Winthor", "Tipo de documento", "Documento", "Responsável", "Telefone", "E-mail", "Endereço", "Cidade",
     "UF", "Filial", "Pedidos entregues", "Valor", "Ticket médio", "Pedidos sem entrega", "Primeira compra", "Última compra",
     "Dias sem comprar", "Compra a cada (dias)", "Situação", "Atividade", "Porte"];
-  baixarCSV("clientes", cab, render().map((c) => [c.nome, c.codcli ?? "", c.tipo_doc, c.documento, c.responsavel, c.telefone, c.email,
+  baixarCSV("clientes", cab, render().map((c) => [c.nome, c.codcli, c.tipo_doc, c.documento_fmt, c.responsavel, c.telefone, c.email,
     c.endereco, c.cidade, c.uf, c.filial, c.n, numCSV(c.valor), numCSV(c.ticket), c.perdidos, dCSV(c.primeira), dCSV(c.ultima),
     c.dias ?? "", c.frequencia ?? "", c.situacao, c.atividade, c.porte]));
 });

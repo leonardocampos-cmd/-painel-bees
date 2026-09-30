@@ -139,7 +139,7 @@ for (const p of PED) {
   p.perdido = p.posicao === "C" || p.posicao === "R";
   p.robo = p.posicao === "X";
   p.liquido = p.posicao === "F" ? p.valor - p.devolvido : p.posicao === "E" ? p.valor : 0;
-  p.cli = p.codcli ?? "n:" + p.cliente;
+  p.cli = p.cli ?? p.codcli ?? "n:" + p.cliente;  // cliente pelo CPF/CNPJ do BEES (exportar_painel.py)
   p.itens = [];
 }
 for (const it of ITENS) PED[it.pedido]?.itens.push(it);
