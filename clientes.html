@@ -170,7 +170,7 @@ function detalhe(c) {
 }
 
 const colunas = [
-  ["nome", "Cliente"], ["uf", "UF"], ["filial", "Filial"], ["n", "Pedidos", true], ["valor", "Valor", true],
+  ["nome", "Cliente"], ["documento", "CNPJ/CPF"], ["filial", "Filial"], ["n", "Pedidos", true], ["valor", "Valor", true],
   ["ticket", "Ticket médio", true], ["dias", "Última compra"], ["situacao", "Situação"],
 ];
 
@@ -199,7 +199,7 @@ function render() {
   $("#t-clientes").innerHTML = lista.length ? `<thead><tr>${colunas.map(([c, n, num]) =>
     `<th data-c="${c}" class="${num ? "n" : ""}">${n}${ordem.campo === c ? (ordem.asc ? " ↑" : " ↓") : ""}</th>`).join("")}</tr></thead>
     <tbody>${visiveis.map((c) => `<tr class="clicavel${aberto === c.chave ? " aberto" : ""}" data-k="${esc(c.chave)}">
-      <td>${esc(c.nome)}<div class="fraco">${esc(c.cidade) || ""}</div></td><td class="fraco">${esc(c.uf) || "—"}</td>
+      <td>${esc(c.nome)}<div class="fraco">${esc(c.cidade) || ""}</div></td><td class="mono" style="white-space:nowrap">${esc(c.documento_fmt) || '<span class="fraco">—</span>'}</td>
       <td>${[...c.filiais].sort().map((f) => `<span class="tag ${f.toLowerCase()}">${f}</span>`).join(" ") || "—"}</td>
       <td class="n">${int(c.n)}${c.perdidos ? `<div class="fraco" style="white-space:nowrap">${int(c.perdidos)} sem entrega</div>` : ""}</td>
       <td class="n">${brl(c.valor)}</td><td class="n">${brl(c.ticket)}</td>
@@ -220,7 +220,7 @@ function render() {
 $("#t-clientes").addEventListener("click", (e) => {
   const th = e.target.closest("th[data-c]");
   if (th) {
-    ordem = { campo: th.dataset.c, asc: ordem.campo === th.dataset.c ? !ordem.asc : ["nome", "uf", "filial", "dias", "situacao"].includes(th.dataset.c) };
+    ordem = { campo: th.dataset.c, asc: ordem.campo === th.dataset.c ? !ordem.asc : ["nome", "documento", "filial", "dias", "situacao"].includes(th.dataset.c) };
     return render();
   }
   const tr = e.target.closest("tr.clicavel");
