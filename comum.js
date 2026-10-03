@@ -175,7 +175,7 @@ function baixarTodosPedidos() {
 
 // --- Arquivo de importação de pedidos no Winthor (modelo SP_ARQUIVO_SP.xlsx) ---
 // Linhas montadas pelo arquivo_winthor.py; um .xlsx por estado (cada um é importado no Winthor do seu estado).
-// Pedidos de cliente sem cadastro no Winthor (sem codcli) ficam de fora: a importação falharia.
+// As regras (cliente bloqueado ou sem cadastro, item sem estoque, < R$ 250 sem esses itens) vêm do arquivo_winthor.py.
 function carregarScript(global, src) {
   if (window[global]) return Promise.resolve();
   return new Promise((ok, erro) =>
@@ -186,16 +186,18 @@ const carregarJSZip = () => carregarScript("JSZip", "https://cdnjs.cloudflare.co
 
 async function baixarArquivoWinthor(lista, botao) {
   const AW = D.arquivo_winthor || {};
-  const porUF = {}, semCadastro = [], semLinhas = [];
+  const porUF = {}, fora = {};
+  let itensRetirados = 0;
   for (const p of lista) {
     const ped = (AW.pedidos || {})[`${p.filial}|${p.numero}`];
-    if (!ped) { semLinhas.push(p.numero); continue; }
-    if (ped.linhas.some((l) => !l[AW.colunas.indexOf("codcli")])) { semCadastro.push(p.numero); continue; }
+    const motivo = !ped ? "sem dados do Winthor" : ped.fora || (!ped.linhas.length ? "sem itens" : "");
+    if (motivo) { fora[motivo] = (fora[motivo] || 0) + 1; continue; }
+    itensRetirados += ped.itens_retirados || 0;
     (porUF[ped.uf] ??= []).push(...ped.linhas);
   }
   const ufs = Object.keys(porUF);
-  const aviso = [semCadastro.length && `${semCadastro.length} sem cadastro no Winthor`, semLinhas.length && `${semLinhas.length} sem dados`]
-    .filter(Boolean).join(", ");
+  const aviso = [...Object.entries(fora).map(([m, n]) => `${n} ${m.toLowerCase()}`),
+    itensRetirados && `${itensRetirados} itens sem estoque retirados`].filter(Boolean).join(", ");
   if (!ufs.length) { botao.textContent = `Nenhum pedido para o arquivo${aviso ? ` (${aviso})` : ""}`; return; }
   const texto = botao.textContent;
   botao.textContent = "Gerando…";
@@ -220,9 +222,10 @@ async function baixarArquivoWinthor(lista, botao) {
       });
       a.click();
     }
-    botao.textContent = `Baixado: ${ufs.join(", ")}${aviso ? ` · fora: ${aviso}` : ""}`;
+    botao.textContent = `Baixado: ${ufs.join(", ")}${aviso ? ` · ${aviso}` : ""}`;
+    botao.title = aviso;
   } catch (e) {
     botao.textContent = "Erro ao gerar o arquivo";
   }
-  setTimeout(() => { botao.textContent = texto; }, 6000);
+  setTimeout(() => { botao.textContent = texto; }, 10000);
 }
