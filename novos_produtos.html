@@ -37,6 +37,14 @@
   .np.errada .bt-errada { background: var(--alerta); border-color: var(--alerta); color: #fff; }
   .curva { font-weight: 700; }
   .mais { margin: 22px auto 0; display: block; }
+  .manual { display: flex; gap: 6px; }
+  .manual input { flex: 1; min-width: 0; padding: 6px 10px; border: 1px solid var(--linha); border-radius: 999px;
+    background: var(--superficie); color: var(--tinta); font: inherit; font-size: 12px; }
+  .manual button, .bt-trocar { padding: 6px 10px; border-radius: 999px; border: 1px solid var(--linha); background: transparent;
+    color: var(--tinta); font: inherit; font-size: 12px; cursor: pointer; }
+  .np.com-manual { border-color: var(--ambar); box-shadow: 0 0 0 2px var(--ambar) inset; }
+  .np .links { display: flex; gap: 10px; font-size: 12px; }
+  .np .links a { color: var(--apagado); }
 </style>
 </head>
 <body>
@@ -47,13 +55,15 @@
   <div class="filtros-np">
     <input id="f-busca" type="search" placeholder="Buscar por nome, SKU ou marca">
     <select id="f-vend"><option value="">Rigarr e Castas</option><option value="RIGARR">Rigarr</option><option value="CASTAS">Castas</option></select>
-    <select id="f-foto"><option value="">Com e sem foto</option><option value="com">Com foto</option><option value="sem">Sem foto</option><option value="errada">Marcadas como erradas</option></select>
+    <select id="f-foto"><option value="">Com e sem foto</option><option value="com">Com foto</option><option value="sem">Sem foto</option><option value="errada">Marcadas como erradas</option><option value="manual">Colocadas à mão</option></select>
     <select id="f-fonte"><option value="">Todas as fontes</option></select>
     <select id="f-curva"><option value="">Todas as curvas</option><option value="A">Curva A</option><option value="B">Curva B</option><option value="C">Curva C</option><option value="-">Sem curva</option></select>
   </div>
   <div class="acoes-np">
     <button class="botao" id="b-erradas">Baixar fotos erradas</button>
-    <span class="fraco" id="dica">Salve o arquivo baixado em <b>G:\Drives compartilhados\BEES\Produtos\</b> — na próxima geração essas fotos saem e o robô procura outra.</span>
+    <button class="botao" id="b-manuais">Baixar fotos colocadas à mão</button>
+    <span class="fraco" id="dica">Para colocar uma foto: clique em "Buscar no Google", abra a imagem, clique com o botão direito em "Copiar endereço da imagem" e cole no campo do produto.
+      Depois baixe os arquivos e salve em <b>G:\Drives compartilhados\BEES\Produtos\</b>. Na próxima geração as planilhas já saem com essas fotos.</span>
   </div>
 
   <div class="grade g-kpi" id="kpis"></div>
@@ -78,6 +88,17 @@ try { erradas = JSON.parse(localStorage.getItem(CHAVE) || "{}"); } catch {}
 const id = (p) => `${p.vendedor}|${p.sku}|${p.imagem}`;
 const salvar = () => { try { localStorage.setItem(CHAVE, JSON.stringify(erradas)); } catch {} };
 
+// Fotos colocadas à mão (por vendedor + SKU), ficam no navegador até baixar o arquivo
+const CHAVE_MANUAIS = "fotos_manuais";
+let manuais = {};
+try { manuais = JSON.parse(localStorage.getItem(CHAVE_MANUAIS) || "{}"); } catch {}
+const idm = (p) => `${p.vendedor}|${p.sku}`;
+// Já entrou na planilha: não precisa mais guardar
+itens.forEach((p) => { if (manuais[idm(p)] && manuais[idm(p)] === p.imagem) delete manuais[idm(p)]; });
+const salvarManuais = () => { try { localStorage.setItem(CHAVE_MANUAIS, JSON.stringify(manuais)); } catch {} };
+const fotoDe = (p) => manuais[idm(p)] || p.imagem;
+let trocando = null;
+
 const POR_PAGINA = 60;
 let limite = POR_PAGINA;
 
@@ -87,44 +108,73 @@ function filtrar() {
   return itens.filter((p) =>
     (!v || p.vendedor === v) && (!fonte || p.fonte === fonte) &&
     (!curva || (curva === "-" ? !p.curva : p.curva === curva)) &&
-    (!foto || (foto === "com" ? !!p.imagem : foto === "sem" ? !p.imagem : !!erradas[id(p)])) &&
+    (!foto || (foto === "com" ? !!fotoDe(p) : foto === "sem" ? !fotoDe(p) : foto === "manual" ? !!manuais[idm(p)] : !!erradas[id(p)])) &&
     (!b || [p.nome, p.sku, p.marca].join(" ").toUpperCase().includes(b)));
 }
 
 function card(p) {
-  const marcada = !!erradas[id(p)];
-  return `<article class="np${marcada ? " errada" : ""}" data-id="${esc(id(p))}">
-    <div class="foto">${p.imagem ? `<img src="${esc(p.imagem)}" alt="${esc(p.nome)}" loading="lazy" referrerpolicy="no-referrer"
-      onerror="this.replaceWith(Object.assign(document.createElement('span'), {textContent: 'Foto não abriu'}))">` : "<span>Sem foto</span>"}</div>
+  const manual = manuais[idm(p)];
+  const marcada = !manual && !!erradas[id(p)];
+  const foto = fotoDe(p);
+  const pedeFoto = !foto || marcada || trocando === idm(p);
+  const busca = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(p.nome + (p.ean ? " " + p.ean : ""))}`;
+  return `<article class="np${marcada ? " errada" : ""}${manual ? " com-manual" : ""}" data-id="${esc(id(p))}">
+    <div class="foto">${foto ? `<img src="${esc(foto)}" alt="${esc(p.nome)}" loading="lazy" referrerpolicy="no-referrer"
+      onerror="this.replaceWith(Object.assign(document.createElement('span'), {textContent: 'Foto não abriu - confira o link'}))">` : "<span>Sem foto</span>"}</div>
     <div class="corpo">
       <h3>${esc(p.nome)}</h3>
       <div class="meta"><span>SKU ${esc(p.sku)}</span><span class="tag ${p.vendedor === "CASTAS" ? "castas" : "rigarr"}">${p.vendedor === "CASTAS" ? "Castas" : "Rigarr"}</span>
         ${p.curva ? `<span>Curva <span class="curva">${esc(p.curva)}</span></span>` : ""}</div>
       <div class="meta"><span>Saída ${esc(p.ultima_saida)}</span><span>Estoque ${int(p.estoque)}</span><span>${esc(p.estados)}</span></div>
       ${p.ja_rigarr ? '<div class="meta"><span class="tag hoje">Já está no BEES pela Rigarr</span></div>' : ""}
+      ${manual ? '<div class="meta"><span class="tag hoje">Foto colocada à mão</span></div>' : ""}
+      <div class="links"><a href="${esc(busca)}" target="_blank" rel="noopener noreferrer">Buscar no Google</a>
+        ${manual ? `<a href="#" class="bt-remover" data-idm="${esc(idm(p))}">Tirar foto manual</a>`
+          : foto && !pedeFoto ? `<a href="#" class="bt-trocar-link" data-idm="${esc(idm(p))}">Trocar foto</a>` : ""}</div>
+      ${pedeFoto && !manual ? `<form class="manual" data-idm="${esc(idm(p))}">
+        <input type="url" required placeholder="Cole o link da foto (.jpg ou .png)"><button>Usar</button></form>` : ""}
       <div class="rodape">
         <span>${p.fonte ? esc(p.fonte) : ""}${p.pagina ? ` · <a href="${esc(p.pagina)}" target="_blank" rel="noopener noreferrer">ver página</a>` : ""}</span>
-        ${p.imagem ? `<button class="bt-errada" data-id="${esc(id(p))}">${marcada ? "Marcada" : "Foto errada"}</button>` : ""}
+        ${p.imagem && !manual ? `<button class="bt-errada" data-id="${esc(id(p))}">${marcada ? "Marcada" : "Foto errada"}</button>` : ""}
       </div>
     </div></article>`;
 }
 
 function render() {
   const lista = filtrar();
-  const comFoto = lista.filter((p) => p.imagem).length;
+  const comFoto = lista.filter((p) => fotoDe(p)).length;
   $("#kpis").innerHTML = [
     kpi("Produtos", int(lista.length), "no filtro escolhido", true),
     kpi("Com foto", int(comFoto), lista.length ? `${Math.round(comFoto / lista.length * 100)}% do filtro` : ""),
     kpi("Sem foto", int(lista.length - comFoto), "ainda sendo buscadas"),
     kpi("Marcadas como erradas", int(Object.keys(erradas).length), "para baixar e salvar"),
+    kpi("Colocadas à mão", int(Object.keys(manuais).length), "para baixar e salvar"),
   ].join("");
+  $("#b-manuais").textContent = `Baixar fotos colocadas à mão (${int(Object.keys(manuais).length)})`;
   $("#grade").innerHTML = lista.length ? lista.slice(0, limite).map(card).join("")
     : `<p class="vazio">Nenhum produto com esses filtros.</p>`;
   $("#b-mais").hidden = lista.length <= limite;
   $("#b-mais").textContent = `Mostrar mais (${int(lista.length - limite)} restantes)`;
 }
 
+$("#grade").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const url = e.target.querySelector("input").value.trim();
+  if (!/^https?:\/\//i.test(url)) return;
+  manuais[e.target.dataset.idm] = url;
+  trocando = null;
+  salvarManuais();
+  render();
+});
 $("#grade").addEventListener("click", (e) => {
+  const t = e.target.closest(".bt-remover, .bt-trocar-link");
+  if (t) {
+    e.preventDefault();
+    if (t.classList.contains("bt-remover")) { delete manuais[t.dataset.idm]; salvarManuais(); }
+    else trocando = t.dataset.idm;
+    render();
+    return;
+  }
   const b = e.target.closest(".bt-errada");
   if (!b) return;
   const k = b.dataset.id;
@@ -136,6 +186,11 @@ $("#b-erradas").onclick = () => {
   const linhas = itens.filter((p) => erradas[id(p)]).map((p) => [p.sku, p.imagem, p.vendedor, p.nome]);
   if (!linhas.length) { $("#dica").textContent = "Nenhuma foto marcada como errada."; return; }
   baixarCSV("imagens_rejeitadas", ["sku", "imagem", "vendedor", "nome"], linhas);
+};
+$("#b-manuais").onclick = () => {
+  const linhas = itens.filter((p) => manuais[idm(p)]).map((p) => [p.sku, manuais[idm(p)], p.vendedor, p.nome]);
+  if (!linhas.length) { $("#dica").textContent = "Nenhuma foto colocada à mão ainda."; return; }
+  baixarCSV("imagens_manuais", ["sku", "imagem", "vendedor", "nome"], linhas);
 };
 document.querySelectorAll(".filtros-np input, .filtros-np select").forEach((el) =>
   el.addEventListener("input", () => { limite = POR_PAGINA; render(); }));
