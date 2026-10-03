@@ -30,6 +30,7 @@
     <select id="f-cd"><option value="">Todos os CDs</option></select>
     <select id="f-pag"><option value="">Todas as formas de pagamento</option></select>
     <button class="botao" id="b-csv">Baixar CSV</button>
+    <button class="botao" id="b-winthor" title="Arquivo de importação no Winthor (modelo SP_ARQUIVO) dos pedidos filtrados">Arquivo Winthor</button>
   </div>
 
   <div class="grade g-kpi" id="kpis"></div>
@@ -161,6 +162,7 @@ document.querySelectorAll(".abas button").forEach((b) => b.addEventListener("cli
   $("#aba-produtos").hidden = b.dataset.aba !== "produtos";
 }));
 
+$("#b-winthor").addEventListener("click", (e) => baixarArquivoWinthor(filtrar(), e.currentTarget));
 $("#b-csv").addEventListener("click", () => {
   const cab = ["Pedido", "Filial", "UF", "CD", "Cliente", "Documento", "Cidade", "Data pedido", "Data entrega", "Pagamento",
     "Telefone", "SKU", "Produto", "Qtd pedida", "Qtd preparar", "Valor item", "Total pedido"];

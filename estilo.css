@@ -225,6 +225,7 @@ tbody tr.aberto td:first-child { box-shadow: inset 4px 0 0 var(--faixa); }
 /* --- Filtros ------------------------------------------------------------- */
 .filtros { display: grid; grid-template-columns: 2fr repeat(4, 1fr) auto; gap: 10px; margin-top: 26px; }
 @media (max-width: 960px) { .filtros { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 961px) { .filtros:has(#b-winthor) { grid-template-columns: 2fr repeat(4, 1fr) auto auto; } }
 .filtros input, .filtros select, .botao {
   width: 100%; padding: 10px 14px; border: 1px solid var(--linha); border-radius: 999px;
   background: var(--superficie); color: var(--tinta); font: inherit; font-size: 14px;

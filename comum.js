@@ -172,3 +172,57 @@ function baixarTodosPedidos() {
     btn.textContent = "Baixar tudo";
   }, 30);
 }
+
+// --- Arquivo de importação de pedidos no Winthor (modelo SP_ARQUIVO_SP.xlsx) ---
+// Linhas montadas pelo arquivo_winthor.py; um .xlsx por estado (cada um é importado no Winthor do seu estado).
+// Pedidos de cliente sem cadastro no Winthor (sem codcli) ficam de fora: a importação falharia.
+function carregarScript(global, src) {
+  if (window[global]) return Promise.resolve();
+  return new Promise((ok, erro) =>
+    document.head.appendChild(Object.assign(document.createElement("script"), { src, onload: ok, onerror: erro })));
+}
+const carregarSheetJS = () => carregarScript("XLSX", "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js");
+const carregarJSZip = () => carregarScript("JSZip", "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js");
+
+async function baixarArquivoWinthor(lista, botao) {
+  const AW = D.arquivo_winthor || {};
+  const porUF = {}, semCadastro = [], semLinhas = [];
+  for (const p of lista) {
+    const ped = (AW.pedidos || {})[`${p.filial}|${p.numero}`];
+    if (!ped) { semLinhas.push(p.numero); continue; }
+    if (ped.linhas.some((l) => !l[AW.colunas.indexOf("codcli")])) { semCadastro.push(p.numero); continue; }
+    (porUF[ped.uf] ??= []).push(...ped.linhas);
+  }
+  const ufs = Object.keys(porUF);
+  const aviso = [semCadastro.length && `${semCadastro.length} sem cadastro no Winthor`, semLinhas.length && `${semLinhas.length} sem dados`]
+    .filter(Boolean).join(", ");
+  if (!ufs.length) { botao.textContent = `Nenhum pedido para o arquivo${aviso ? ` (${aviso})` : ""}`; return; }
+  const texto = botao.textContent;
+  botao.textContent = "Gerando…";
+  try {
+    await carregarSheetJS();
+    const dia = new Date().toISOString().slice(0, 10);
+    const planilha = (uf) => {
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([AW.colunas, ...porUF[uf]]), "Sheet1");
+      return wb;
+    };
+    if (ufs.length === 1) {
+      XLSX.writeFile(planilha(ufs[0]), `${ufs[0]}_ARQUIVO_${ufs[0]}_${dia}.xlsx`);
+    } else {
+      // O navegador bloqueia vários downloads seguidos: vários estados vão num .zip, um .xlsx por estado
+      await carregarJSZip();
+      const zip = new JSZip();
+      for (const uf of ufs.sort())
+        zip.file(`${uf}_ARQUIVO_${uf}_${dia}.xlsx`, XLSX.write(planilha(uf), { bookType: "xlsx", type: "array" }));
+      const a = Object.assign(document.createElement("a"), {
+        href: URL.createObjectURL(await zip.generateAsync({ type: "blob" })), download: `ARQUIVOS_WINTHOR_${dia}.zip`,
+      });
+      a.click();
+    }
+    botao.textContent = `Baixado: ${ufs.join(", ")}${aviso ? ` · fora: ${aviso}` : ""}`;
+  } catch (e) {
+    botao.textContent = "Erro ao gerar o arquivo";
+  }
+  setTimeout(() => { botao.textContent = texto; }, 6000);
+}

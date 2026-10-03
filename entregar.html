@@ -26,6 +26,7 @@
     <select id="f-cd"><option value="">Todos os CDs</option></select>
     <select id="f-div"><option value="">Qualquer valor</option><option value="1">Itens BEES ≠ NF</option></select>
     <button class="botao" id="b-csv">Baixar CSV</button>
+    <button class="botao" id="b-winthor" title="Arquivo de importação no Winthor (modelo SP_ARQUIVO) dos pedidos filtrados com próximo passo &quot;Sem pedido no Winthor&quot;">Arquivo Winthor</button>
   </div>
 
   <div class="grade g-kpi" id="kpis"></div>
@@ -179,6 +180,8 @@ $("#t-pedidos").addEventListener("click", (e) => {
 });
 document.querySelectorAll(".filtros input, .filtros select").forEach((el) => el.addEventListener("input", render));
 
+$("#b-winthor").addEventListener("click", (e) =>
+  baixarArquivoWinthor(filtrar().filter((p) => p.acao === "Sem pedido no Winthor"), e.currentTarget));
 $("#b-csv").addEventListener("click", () => {
   const cab = ["Pedido BEES", "Filial", "UF", "CD", "Cliente", "Documento", "Cidade", "Entrega BEES", "Pagamento", "Telefone",
     "Total BEES", "Próximo passo", "Situação Winthor", "Pedido Winthor", "Cód. cliente", "Valor Winthor", "Faturado em", "NF",
