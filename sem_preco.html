@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Sem preço</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@500;600;700&family=Barlow+Condensed:wght@600;800;900&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- ?v= evita que o navegador mostre dados antigos do cache -->
+<script>document.write('<link rel="stylesheet" href="estilo.css?v=' + Date.now() + '">')</script>
+<script>document.write('<script src="dados.js?v=' + Date.now() + '"><\/script>')</script>
+<script>document.write('<script src="comum.js?v=' + Date.now() + '"><\/script>')</script>
+<style>
+  .filtros-sp { display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 10px; margin-top: 26px; }
+  @media (max-width: 800px) { .filtros-sp { grid-template-columns: 1fr 1fr; } }
+  .filtros-sp input, .filtros-sp select {
+    width: 100%; padding: 10px 14px; border: 1px solid var(--linha); border-radius: 999px;
+    background: var(--superficie); color: var(--tinta); font: inherit; font-size: 14px;
+  }
+  .aviso { margin-top: 18px; padding: 12px 16px; border-left: 4px solid var(--alerta); background: var(--superficie);
+    border-radius: var(--raio); font-size: 14px; }
+  #t-sem-preco td.sku { font-variant-numeric: tabular-nums; white-space: nowrap; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Produtos sem preço</h1>
+  <p class="sub" id="sub">Produtos com saldo no Winthor que não têm preço vigente na tabela. O saldo deles vai zerado para o BEES até o preço ser cadastrado.</p>
+  <p class="aviso">Para voltar a vender: cadastrar o preço na tabela de origem do estado. Na próxima atualização o robô sobe o preço e o saldo volta sozinho.</p>
+
+  <div class="filtros-sp">
+    <input id="f-busca" type="search" placeholder="Buscar por nome ou SKU">
+    <select id="f-filial"><option value="">Rigarr e Castas</option><option>Rigarr</option><option>Castas</option></select>
+    <select id="f-uf"><option value="">Todos os estados</option></select>
+    <button class="botao" id="b-csv">Baixar CSV</button>
+  </div>
+
+  <div class="grade g-kpi" id="kpis"></div>
+  <div class="tabela-wrap" style="margin-top:14px"><table id="t-sem-preco"></table></div>
+</main>
+
+<script>
+montarTopo("sem_preco");
+
+const SP = D.sem_preco || { itens: [] };
+const itens = SP.itens || [];
+if (SP.atualizado_em)
+  $("#sub").textContent += ` Lista de ${new Date(SP.atualizado_em).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}.`;
+
+const ufs = [...new Set(itens.map((p) => p.uf).filter(Boolean))].sort();
+$("#f-uf").insertAdjacentHTML("beforeend", ufs.map((u) => `<option>${esc(u)}</option>`).join(""));
+
+function filtrar() {
+  const b = $("#f-busca").value.trim().toUpperCase();
+  const filial = $("#f-filial").value, uf = $("#f-uf").value;
+  return itens.filter((p) =>
+    (!filial || p.filial === filial) && (!uf || p.uf === uf) &&
+    (!b || (p.nome + " " + p.sku).toUpperCase().includes(b)));
+}
+
+function render() {
+  const lista = filtrar();
+  $("#kpis").innerHTML = [
+    kpi("Produtos sem preço", int(lista.length), "zerados no BEES", true),
+    kpi("Unidades paradas", int(lista.reduce((s, p) => s + p.estoque, 0)), "saldo no Winthor"),
+    kpi("Centros de distribuição", int(new Set(lista.map((p) => p.cd)).size), "com algum produto sem preço"),
+  ].join("");
+  $("#t-sem-preco").innerHTML = lista.length
+    ? `<thead><tr><th>UF</th><th>Filial</th><th>CD</th><th>SKU</th><th>Produto</th><th class="n">Saldo no Winthor</th></tr></thead>
+       <tbody>${lista.map((p) => `<tr><td>${esc(p.uf)}</td><td><span class="tag ${p.filial.toLowerCase()}">${p.filial}</span></td>
+         <td>${esc(p.cd)}</td><td class="sku">${esc(p.sku)}</td><td>${esc(p.nome) || '<span class="fraco">—</span>'}</td>
+         <td class="n">${int(p.estoque)}</td></tr>`).join("")}</tbody>`
+    : `<tbody><tr><td class="vazio">Nenhum produto com saldo e sem preço nesses filtros.</td></tr></tbody>`;
+}
+
+$("#b-csv").onclick = () => baixarCSV("produtos_sem_preco", ["UF", "Filial", "CD", "SKU", "Produto", "Saldo no Winthor"],
+  filtrar().map((p) => [p.uf, p.filial, p.cd, p.sku, p.nome, p.estoque]));
+document.querySelectorAll(".filtros-sp input, .filtros-sp select").forEach((el) => el.addEventListener("input", render));
+render();
+</script>
+</body>
+</html>
