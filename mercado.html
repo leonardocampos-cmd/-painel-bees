@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Mercado</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@500;600;700&family=Barlow+Condensed:wght@600;800;900&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- ?v= evita que o navegador mostre dados antigos do cache -->
+<script>document.write('<link rel="stylesheet" href="estilo.css?v=' + Date.now() + '">')</script>
+<script>document.write('<script src="dados.js?v=' + Date.now() + '"><\/script>')</script>
+<script>document.write('<script src="comum.js?v=' + Date.now() + '"><\/script>')</script>
+<style>
+  .filtros-mk { display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 10px; margin-top: 26px; }
+  @media (max-width: 800px) { .filtros-mk { grid-template-columns: 1fr 1fr; } }
+  .filtros-mk input, .filtros-mk select {
+    width: 100%; padding: 10px 14px; border: 1px solid var(--linha); border-radius: 999px;
+    background: var(--superficie); color: var(--tinta); font: inherit; font-size: 14px;
+  }
+  .abas-mk { display: flex; gap: 8px; margin-top: 22px; }
+  .abas-mk button { padding: 8px 16px; border-radius: 999px; border: 1px solid var(--linha); background: var(--superficie);
+    color: var(--tinta); font: inherit; font-size: 14px; cursor: pointer; }
+  .abas-mk button.ativo { background: var(--faixa); color: #000; border-color: var(--faixa); font-weight: 600; }
+  .caro { color: var(--alerta); font-weight: 600; }
+  .barato { color: var(--garrafa); font-weight: 600; }
+  td.prod { display: flex; gap: 10px; align-items: center; min-width: 260px; }
+  td.prod img { width: 36px; height: 36px; object-fit: contain; background: #fff; border-radius: 6px; flex: none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Pesquisa de mercado</h1>
+  <p class="sub" id="sub">Produtos de outros vendedores no BEES (mybees) comparados com os nossos.</p>
+
+  <div class="filtros-mk">
+    <input id="f-busca" type="search" placeholder="Buscar produto ou marca">
+    <select id="f-vend"><option value="">Todos os concorrentes</option></select>
+    <select id="f-cat"><option value="">Todas as categorias</option></select>
+    <button class="botao" id="b-csv">Baixar CSV</button>
+  </div>
+
+  <div class="grade g-kpi" id="kpis"></div>
+
+  <div class="abas-mk">
+    <button class="ativo" data-aba="comum">Também vendemos</button>
+    <button data-aba="falta">Não temos</button>
+  </div>
+  <div class="tabela-wrap" style="margin-top:14px"><table id="t-mk"></table></div>
+</main>
+
+<script>
+montarTopo("mercado");
+
+const MK = D.mercado || { itens: [] };
+const itens = MK.itens || [];
+if (MK.coletado_em) $("#sub").textContent += ` Coleta de ${dataBR(MK.data)}, ${MK.coletado_em.slice(11, 16)}. Mostra o que a conta de cliente do mybees enxerga na região dela.`;
+
+for (const [id, campo] of [["f-vend", "vendedor"], ["f-cat", "categoria"]])
+  $("#" + id).insertAdjacentHTML("beforeend", [...new Set(itens.map((p) => p[campo]).filter(Boolean))].sort()
+    .map((v) => `<option>${esc(v)}</option>`).join(""));
+
+let aba = "comum";
+const dif = (p) => (p.nosso_preco != null && p.preco ? (p.nosso_preco / p.preco - 1) * 100 : null);
+
+function filtrar() {
+  const b = $("#f-busca").value.trim().toUpperCase();
+  const v = $("#f-vend").value, c = $("#f-cat").value;
+  return itens.filter((p) => (!v || p.vendedor === v) && (!c || p.categoria === c) &&
+    (!b || (p.produto + " " + p.marca).toUpperCase().includes(b)));
+}
+
+const celProd = (p) => `<td class="prod">${p.imagem ? `<img src="${esc(p.imagem)}" alt="" loading="lazy">` : ""}<span>${esc(p.produto)}</span></td>`;
+const celPreco = (p) => p.promo && p.preco_original > p.preco
+  ? `<span class="fraco" style="text-decoration:line-through">${brl(p.preco_original)}</span> ${brl(p.preco)}` : brl(p.preco);
+
+function render() {
+  const lista = filtrar();
+  const comum = lista.filter((p) => p.nosso_preco != null), falta = lista.filter((p) => p.nosso_preco == null);
+  const caros = comum.filter((p) => dif(p) > 0);
+  $("#kpis").innerHTML = [
+    kpi("Produtos de concorrentes", int(lista.length), Object.keys(MK.vendedores || {}).length + " vendedores na região", true),
+    kpi("Também vendemos", int(comum.length), "mesmo produto"),
+    kpi("Estamos mais caros", int(caros.length), "nos produtos em comum"),
+    kpi("Não temos", int(falta.length), "oportunidades de sortimento"),
+  ].join("");
+
+  if (aba === "comum") {
+    const l = comum.sort((a, b) => (dif(b) ?? 0) - (dif(a) ?? 0));
+    $("#t-mk").innerHTML = l.length ? `<thead><tr><th>Produto</th><th>Concorrente</th><th>Categoria</th><th class="n">Preço deles</th>
+      <th class="n">Nosso preço</th><th class="n">Diferença</th><th class="n">Estoque deles</th></tr></thead>
+      <tbody>${l.map((p) => { const d = dif(p); return `<tr>${celProd(p)}<td>${esc(p.vendedor)}</td><td class="fraco">${esc(p.categoria)}</td>
+        <td class="n">${celPreco(p)}</td><td class="n">${brl(p.nosso_preco)} <span class="fraco">${esc(p.nosso_vendedor)}</span></td>
+        <td class="n ${d > 0.5 ? "caro" : d < -0.5 ? "barato" : ""}">${d > 0 ? "+" : ""}${d.toFixed(1).replace(".", ",")}%</td>
+        <td class="n">${p.estoque == null ? "—" : int(p.estoque)}</td></tr>`; }).join("")}</tbody>`
+      : `<tbody><tr><td class="vazio">Nenhum produto em comum nesses filtros.</td></tr></tbody>`;
+  } else {
+    const l = falta.sort((a, b) => (b.estoque ?? 0) - (a.estoque ?? 0));
+    $("#t-mk").innerHTML = l.length ? `<thead><tr><th>Produto</th><th>Marca</th><th>Vendedor</th><th>Categoria</th>
+      <th class="n">Preço</th><th class="n">Estoque deles</th></tr></thead>
+      <tbody>${l.map((p) => `<tr>${celProd(p)}<td>${esc(p.marca)}</td><td>${esc(p.vendedor)}</td><td class="fraco">${esc(p.categoria)}</td>
+        <td class="n">${celPreco(p)}</td><td class="n">${p.estoque == null ? "—" : int(p.estoque)}</td></tr>`).join("")}</tbody>`
+      : `<tbody><tr><td class="vazio">Nenhum produto nesses filtros.</td></tr></tbody>`;
+  }
+}
+
+document.querySelectorAll(".abas-mk button").forEach((b) => b.addEventListener("click", () => {
+  document.querySelectorAll(".abas-mk button").forEach((x) => x.classList.toggle("ativo", x === b));
+  aba = b.dataset.aba; render();
+}));
+document.querySelectorAll(".filtros-mk input, .filtros-mk select").forEach((el) => el.addEventListener("input", render));
+$("#b-csv").onclick = () => baixarCSV("pesquisa_mercado",
+  ["Produto", "Marca", "Vendedor", "Categoria", "Preço", "Preço original", "Estoque", "Nosso preço", "Nosso vendedor", "Diferença %"],
+  filtrar().map((p) => [p.produto, p.marca, p.vendedor, p.categoria, numCSV(p.preco), numCSV(p.preco_original), p.estoque ?? "",
+    numCSV(p.nosso_preco), p.nosso_vendedor, dif(p) == null ? "" : numCSV(dif(p))]));
+render();
+</script>
+</body>
+</html>
