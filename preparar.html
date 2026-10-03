@@ -11,6 +11,12 @@
 <script>document.write('<link rel="stylesheet" href="estilo.css?v=' + Date.now() + '">')</script>
 <script>document.write('<script src="dados.js?v=' + Date.now() + '"><\/script>')</script>
 <script>document.write('<script src="comum.js?v=' + Date.now() + '"><\/script>')</script>
+<style>
+  .det-winthor { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: baseline; margin-bottom: 12px;
+    padding: 10px 14px; border-left: 4px solid var(--garrafa); background: var(--papel); border-radius: 8px; font-size: 14px; }
+  .det-winthor.alerta { border-left-color: var(--alerta); }
+  .indisp { color: var(--alerta); font-weight: 600; }
+</style>
 </head>
 <body>
 <main>
@@ -57,8 +63,29 @@ function filtrar() {
       .join(" ").toUpperCase().includes(b)));
 }
 
+// Impedimento do pedido no Winthor (impedimentos_pedidos.py): cadastro, crédito, saldo
+function tagSituacao(p) {
+  if (p.impedimentos == null) return '<span class="fraco">—</span>';
+  return p.impedimentos ? `<span class="tag hoje" title="${esc(p.impedimentos)}">${esc(p.impedimentos.split("; ")[0])}${p.impedimentos.includes("; ") ? " +" : ""}</span>`
+    : '<span class="tag ok">Liberado</span>';
+}
+
+function blocoWinthor(p) {
+  if (p.impedimentos == null) return "";
+  return `<div class="det-winthor ${p.impedimentos ? "alerta" : ""}">
+    <b>${p.impedimentos ? "Impedimentos: " + esc(p.impedimentos) : "Sem impedimentos no Winthor"}</b>
+    <span>Cliente Winthor: ${p.codcli ? `<span class="mono">${esc(p.codcli)}</span>` : "sem cadastro"}</span>
+    ${p.codcli ? `<span>Limite ${brl(p.limite)} · Em aberto ${brl(p.em_aberto)} · Disponível <b>${brl(p.credito_disponivel)}</b></span>` : ""}
+  </div>`;
+}
+
+const celSaldo = (i) => i.sem_codigo ? '<span class="indisp">sem código</span>'
+  : i.saldo == null ? '<span class="fraco">—</span>'
+  : i.falta ? `<span class="indisp">${int(i.saldo)}</span>` : int(i.saldo);
+
 function detalhe(p) {
-  return `<tr class="detalhe"><td colspan="9">
+  return `<tr class="detalhe"><td colspan="10">
+    ${blocoWinthor(p)}
     <dl class="det-grade">
       <div><dt>Responsável</dt><dd>${esc(p.responsavel)}</dd><dt>Documento</dt><dd class="mono">${esc(p.documento)}</dd>
         <dt>IE</dt><dd class="mono">${esc(p.ie) || "—"}</dd></div>
@@ -67,15 +94,15 @@ function detalhe(p) {
         <dt>Pedido feito em</dt><dd>${dataBR(p.data_pedido)}</dd></div>
     </dl>
     <table class="itens"><thead><tr><th>SKU</th><th>Produto</th><th class="n">Qtd pedida</th><th class="n">Qtd preparar</th>
-      <th class="n">Valor</th></tr></thead><tbody>${p.itens.map((i) => `<tr><td class="mono">${esc(i.sku)}</td>
+      <th class="n">Saldo Winthor</th><th class="n">Valor</th></tr></thead><tbody>${p.itens.map((i) => `<tr><td class="mono">${esc(i.sku)}</td>
       <td>${esc(i.produto)}</td><td class="n">${int(i.qtd_pedida)}</td><td class="n">${int(i.qtd_preparar)}</td>
-      <td class="n">${brl(i.valor)}</td></tr>`).join("")}</tbody></table>
+      <td class="n">${celSaldo(i)}</td><td class="n">${brl(i.valor)}</td></tr>`).join("")}</tbody></table>
   </td></tr>`;
 }
 
 const colunas = [
   ["numero", "Pedido"], ["filial", "Filial"], ["cd", "CD"], ["cliente", "Cliente"], ["cidade", "Cidade"],
-  ["data_entrega", "Entrega"], ["pagamento", "Pagamento"], ["n_itens", "Itens", true], ["total", "Total", true],
+  ["data_entrega", "Entrega"], ["pagamento", "Pagamento"], ["n_itens", "Itens", true], ["total", "Total", true], ["impedimentos", "Situação"],
 ];
 
 function render() {
@@ -89,6 +116,7 @@ function render() {
     kpi("Valor total", brl(total)),
     kpi("Ticket médio", brl(lista.length ? total / lista.length : null)),
     kpi("Entregam até amanhã", int(lista.filter((p) => (diasAte(p.data_entrega) ?? 99) <= 1).length)),
+    kpi("Com impedimento", int(lista.filter((p) => p.impedimentos).length), "cadastro, crédito ou estoque"),
   ].join("");
 
   $("#t-pedidos").innerHTML = lista.length ? `<thead><tr>${colunas.map(([c, n, num]) =>
@@ -100,7 +128,7 @@ function render() {
         <td class="fraco">${esc(p.cd)}</td>
         <td>${esc(p.cliente)}</td>
         <td class="fraco">${esc(p.cidade)}</td><td>${tagEntrega(p.data_entrega)}</td><td class="fraco">${esc(p.pagamento)}</td>
-        <td class="n">${p.n_itens}</td><td class="n">${brl(p.total)}</td></tr>${aberto === chave ? detalhe(p) : ""}`;
+        <td class="n">${p.n_itens}</td><td class="n">${brl(p.total)}</td><td>${tagSituacao(p)}</td></tr>${aberto === chave ? detalhe(p) : ""}`;
     }).join("")}</tbody>` : `<tbody><tr><td class="vazio">Nenhum pedido a preparar${pedidos.length ? " com esses filtros" : ""}.</td></tr></tbody>`;
 
   // Consolidado de produtos para separação
